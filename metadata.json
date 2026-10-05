@@ -1,0 +1,6 @@
+{
+  "name": "GhostInput & OS Interference Detective",
+  "description": "Advanced forensic diagnostic and remediation suite to detect ghost keystrokes, unintended mouse gestures, stuck modifier keys, rogue virtual desktop switching, and OS input interference.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
