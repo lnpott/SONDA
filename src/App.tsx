@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Header } from "./components/Header";
 import { LiveTelemetry } from "./components/LiveTelemetry";
 import { ClickSandbox } from "./components/ClickSandbox";
@@ -7,7 +7,8 @@ import { AIForensicAnalysis } from "./components/AIForensicAnalysis";
 import { RemediationHub } from "./components/RemediationHub";
 import { TroubleshooterWizard } from "./components/TroubleshooterWizard";
 import { CSharpSuite } from "./components/CSharpSuite";
-import { InputEventRecord, ModifierStates } from "./types";
+import { InputSourceVisualizer } from "./components/InputSourceVisualizer";
+import { InputEventRecord, ModifierStates, InputChannelsConfig } from "./types";
 import {
   ShieldAlert,
   AlertTriangle,
@@ -16,6 +17,10 @@ import {
   Activity,
   Layers,
   Sparkles,
+  Keyboard,
+  MousePointer,
+  Compass,
+  Sliders,
 } from "lucide-react";
 
 export default function App() {
@@ -26,6 +31,34 @@ export default function App() {
     text: string;
     type: "info" | "success" | "warning";
   } | null>(null);
+
+  // Input Type Recording Channels Configuration State
+  const [inputChannels, setInputChannels] = useState<InputChannelsConfig>({
+    keyboard: true,
+    mouse: true,
+    wheel: true,
+  });
+
+  const inputChannelsRef = useRef(inputChannels);
+  useEffect(() => {
+    inputChannelsRef.current = inputChannels;
+  }, [inputChannels]);
+
+  const toggleChannel = (channel: keyof InputChannelsConfig) => {
+    setInputChannels((prev) => {
+      const updated = { ...prev, [channel]: !prev[channel] };
+      const name =
+        channel === "wheel"
+          ? "Wheel / Tilt"
+          : channel.charAt(0).toUpperCase() + channel.slice(1);
+      const stateLabel = updated[channel] ? "enabled" : "muted (noise suppressed)";
+      showToast(
+        `${name} telemetry channel ${stateLabel}.`,
+        updated[channel] ? "success" : "info"
+      );
+      return updated;
+    });
+  };
 
   const [activeModifiers, setActiveModifiers] = useState<ModifierStates>({
     meta: false,
@@ -66,6 +99,9 @@ export default function App() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       updateModifiers(e);
+
+      // Skip recording if keyboard capture is turned off
+      if (!inputChannelsRef.current.keyboard) return;
 
       const isMeta = e.getModifierState("Meta");
       const isCtrl = e.getModifierState("Control");
@@ -114,6 +150,10 @@ export default function App() {
 
     const handleKeyUp = (e: KeyboardEvent) => {
       updateModifiers(e);
+
+      // Skip recording if keyboard capture is turned off
+      if (!inputChannelsRef.current.keyboard) return;
+
       addEvent({
         id: `kb-up-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         timestamp: Date.now(),
@@ -134,6 +174,9 @@ export default function App() {
 
     const handleMouseDown = (e: MouseEvent) => {
       updateModifiers(e);
+
+      // Skip recording if mouse capture is turned off
+      if (!inputChannelsRef.current.mouse) return;
 
       const isMeta = e.getModifierState("Meta");
       const isCtrl = e.getModifierState("Control");
@@ -169,6 +212,9 @@ export default function App() {
     };
 
     const handleWheel = (e: WheelEvent) => {
+      // Skip recording if wheel capture is turned off
+      if (!inputChannelsRef.current.wheel) return;
+
       // Check horizontal wheel tilt
       if (Math.abs(e.deltaX) > 15) {
         addEvent({
@@ -369,6 +415,102 @@ export default function App() {
           </div>
         </div>
 
+        {/* Input Recording Channels Configuration Panel */}
+        <div className="p-3.5 bg-neutral-900 border border-neutral-800 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-md bg-neutral-950 border border-neutral-800 text-cyan-400">
+              <Sliders className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-white uppercase tracking-wider font-mono">
+                  Telemetry Recording Channels
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 font-mono">
+                  {Object.values(inputChannels).filter(Boolean).length}/3 Active
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                Toggle specific input channels before or during capture to eliminate log noise and reduce system resource overhead.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Keyboard Channel Toggle */}
+            <button
+              type="button"
+              onClick={() => toggleChannel("keyboard")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                inputChannels.keyboard
+                  ? "bg-indigo-950/70 border-indigo-700 text-indigo-200 shadow-sm"
+                  : "bg-neutral-950 border-neutral-800 text-neutral-500 hover:text-neutral-400"
+              }`}
+              title="Toggle recording for physical and synthetic keyboard keystrokes"
+            >
+              <Keyboard className="w-3.5 h-3.5" />
+              <span>Keyboard</span>
+              <span
+                className={`text-[10px] font-mono px-1 rounded ${
+                  inputChannels.keyboard
+                    ? "bg-indigo-900 text-indigo-300 font-bold"
+                    : "bg-neutral-900 text-neutral-600 line-through"
+                }`}
+              >
+                {inputChannels.keyboard ? "REC" : "OFF"}
+              </span>
+            </button>
+
+            {/* Mouse Channel Toggle */}
+            <button
+              type="button"
+              onClick={() => toggleChannel("mouse")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                inputChannels.mouse
+                  ? "bg-cyan-950/70 border-cyan-700 text-cyan-200 shadow-sm"
+                  : "bg-neutral-950 border-neutral-800 text-neutral-500 hover:text-neutral-400"
+              }`}
+              title="Toggle recording for mouse clicks and cursor buttons"
+            >
+              <MousePointer className="w-3.5 h-3.5" />
+              <span>Mouse</span>
+              <span
+                className={`text-[10px] font-mono px-1 rounded ${
+                  inputChannels.mouse
+                    ? "bg-cyan-900 text-cyan-300 font-bold"
+                    : "bg-neutral-900 text-neutral-600 line-through"
+                }`}
+              >
+                {inputChannels.mouse ? "REC" : "OFF"}
+              </span>
+            </button>
+
+            {/* Wheel Channel Toggle */}
+            <button
+              type="button"
+              onClick={() => toggleChannel("wheel")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                inputChannels.wheel
+                  ? "bg-amber-950/70 border-amber-700 text-amber-200 shadow-sm"
+                  : "bg-neutral-950 border-neutral-800 text-neutral-500 hover:text-neutral-400"
+              }`}
+              title="Toggle recording for mouse wheel and horizontal tilt gestures"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Wheel / Tilt</span>
+              <span
+                className={`text-[10px] font-mono px-1 rounded ${
+                  inputChannels.wheel
+                    ? "bg-amber-900 text-amber-300 font-bold"
+                    : "bg-neutral-900 text-neutral-600 line-through"
+                }`}
+              >
+                {inputChannels.wheel ? "REC" : "OFF"}
+              </span>
+            </button>
+          </div>
+        </div>
+
         {/* Tab Views */}
         {activeTab === "csharp" && <CSharpSuite />}
 
@@ -380,6 +522,17 @@ export default function App() {
             onClear={() => setEvents([])}
             activeModifiers={activeModifiers}
             anomalies={anomalies}
+            inputChannels={inputChannels}
+            onToggleChannel={toggleChannel}
+          />
+        )}
+
+        {activeTab === "visualizer" && (
+          <InputSourceVisualizer
+            events={events}
+            activeModifiers={activeModifiers}
+            anomalies={anomalies}
+            onCaptureEvent={addEvent}
           />
         )}
 

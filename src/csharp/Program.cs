@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Windows.Forms;
 
 namespace InputSleuth
 {
@@ -37,8 +38,18 @@ namespace InputSleuth
 
         static GlobalInputHook? _hook;
 
+        [STAThread]
         static void Main(string[] args)
         {
+            // Se invocado com --tray ou -t, inicia diretamente o Daemon da Bandeja do Sistema
+            if (args.Length > 0 && (args[0].ToLower().Contains("tray") || args[0].ToLower() == "-t"))
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new TrayGuardApp());
+                return;
+            }
+
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             Console.Title = "InputSleuth OS - Diagnosticador e Protetor C# (.NET 8)";
 
@@ -84,10 +95,22 @@ namespace InputSleuth
             Console.WriteLine("      -> Registra ESTRITAMENTE o que for gerado por programas em segundo plano.");
             Console.WriteLine("  [3] AUDITORIA TOTAL:");
             Console.WriteLine("      -> Registra absolutamente tudo (inclusive todo clique normal).");
+            Console.WriteLine("  [4] MODO BANDEJA DO SISTEMA (SYSTEM TRAY):");
+            Console.WriteLine("      -> Roda silenciosamente ao lado do relógio do Windows com ícone no Tray.");
+            Console.WriteLine("      -> Permite Ligar/Desligar Monitoramento e Bloqueio Ativo no clique direito.");
             Console.ResetColor();
 
-            Console.Write("\nEscolha o filtro desejado [1, 2 ou 3] (Pressione Enter para [1]): ");
+            Console.Write("\nEscolha o modo desejado [1, 2, 3 ou 4] (Pressione Enter para [1]): ");
             string? choice = Console.ReadLine()?.Trim();
+            if (choice == "4")
+            {
+                Console.WriteLine("\n[TRAY] Iniciando InputSleuth Guard no System Tray...");
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new TrayGuardApp());
+                return;
+            }
+
             LogFilterMode selectedFilter = LogFilterMode.SurgicalFocus;
             if (choice == "2") selectedFilter = LogFilterMode.ApplicationsOnly;
             else if (choice == "3") selectedFilter = LogFilterMode.FullAudit;

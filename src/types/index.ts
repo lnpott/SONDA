@@ -89,3 +89,9 @@ export interface KnownPattern {
   summary: string;
   remediation: string[];
 }
+
+export interface InputChannelsConfig {
+  keyboard: boolean;
+  mouse: boolean;
+  wheel: boolean;
+}

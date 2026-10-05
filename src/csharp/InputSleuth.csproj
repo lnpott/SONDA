@@ -3,12 +3,13 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <Description>InputSleuth OS - Diagnosticador e Bloqueador de Interferência de Teclado, Mouse e Desktops Virtuais em C#</Description>
+    <Description>InputSleuth OS - Diagnosticador e Bloqueador de Interferência de Teclado, Mouse e Desktops Virtuais em C# com Indicador no Tray</Description>
   </PropertyGroup>
 
 </Project>

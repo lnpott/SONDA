@@ -7,6 +7,9 @@ interface HeaderProps {
   onEmergencyUnstick: () => void;
   onExportReport: () => void;
   anomaliesCount: number;
+  isShieldActive?: boolean;
+  onToggleShield?: () => void;
+  blockedCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,10 +18,14 @@ export const Header: React.FC<HeaderProps> = ({
   onEmergencyUnstick,
   onExportReport,
   anomaliesCount,
+  isShieldActive = true,
+  onToggleShield,
+  blockedCount = 0,
 }) => {
   const navItems = [
     { id: "csharp", label: "Código C# (.NET 8)" },
     { id: "telemetry", label: "Live Telemetry" },
+    { id: "visualizer", label: "Input Heatmap" },
     { id: "sandbox", label: "Click Sandbox" },
     { id: "keyboard", label: "Modifier Matrix" },
     { id: "ai-diagnostics", label: "AI Forensic Audit" },
@@ -67,8 +74,38 @@ export const Header: React.FC<HeaderProps> = ({
           ))}
         </nav>
 
-        {/* Zone 3: 1-2 primary actions */}
+        {/* Zone 3: 1-2 primary actions + Tray Guard Quick Indicator */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {onToggleShield && (
+            <button
+              type="button"
+              onClick={onToggleShield}
+              title={
+                isShieldActive
+                  ? "Escudo Ativo LIGADO: Bloqueia trocas de desktop (Clique para alternar)"
+                  : "Escudo Ativo DESLIGADO: Modo apenas observador (Clique para ligar)"
+              }
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-md border flex items-center gap-1.5 transition-all ${
+                isShieldActive
+                  ? "bg-emerald-950/80 border-emerald-600 text-emerald-300 shadow-sm ring-1 ring-emerald-500/30"
+                  : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:text-white"
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isShieldActive ? "bg-emerald-400 animate-pulse" : "bg-neutral-500"
+                }`}
+              />
+              <span className="hidden sm:inline font-mono">Tray:</span>
+              <span>{isShieldActive ? "Escudo Ligado" : "Observador"}</span>
+              {blockedCount > 0 && (
+                <span className="px-1 rounded bg-emerald-900 text-emerald-200 font-mono text-[10px] font-bold">
+                  {blockedCount}
+                </span>
+              )}
+            </button>
+          )}
+
           <button
             onClick={onEmergencyUnstick}
             title="Sends logical keyup events to clear stuck Ctrl/Win/Alt browser locks"

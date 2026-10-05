@@ -54,13 +54,18 @@ namespace InputSleuth
         public bool IsWinDown { get; private set; }
         public bool IsCtrlDown { get; private set; }
         public bool IsAltDown { get; private set; }
-        // MODO OBSERVADOR / DETECÇÃO PURA: NUNCA BLOQUEIA NADA POR PADRÃO
-        public bool BlockDestructiveHotkeys { get; set; } = false;
+        
+        // CONTROLES DE MONITORAMENTO E BLOQUEIO (LIGAR / DESLIGAR)
+        public bool IsMonitoringEnabled { get; set; } = true;
+        public bool BlockDestructiveHotkeys { get; set; } = true;
+        public bool BlockHorizontalTilt { get; set; } = true;
+
         // FILTRO DE LOG INTELIGENTE: Padrão é Foco Cirúrgico (ignora cliques normais)
         public LogFilterMode FilterMode { get; set; } = LogFilterMode.SurgicalFocus;
 
         public event Action<OriginRecord>? OnOriginInspected;
         public event Action<string>? OnLog;
+        public event Action<string>? OnBlockedEvent;
 
         public GlobalInputHook()
         {
@@ -110,6 +115,11 @@ namespace InputSleuth
         {
             if (nCode >= 0)
             {
+                if (!IsMonitoringEnabled)
+                {
+                    return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+                }
+
                 int msg = wParam.ToInt32();
                 var kbd = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
                 bool isInjected = (kbd.flags & LLKHF_INJECTED) != 0;
@@ -122,6 +132,19 @@ namespace InputSleuth
                     bool isArrowKey = (kbd.vkCode == VK_LEFT || kbd.vkCode == VK_RIGHT || kbd.vkCode == 0x26 || kbd.vkCode == 0x28);
                     bool isDesktopSwitch = IsWinDown && IsCtrlDown && (kbd.vkCode == VK_LEFT || kbd.vkCode == VK_RIGHT || kbd.vkCode == VK_D);
                     bool isMinimizeAll = IsWinDown && (kbd.vkCode == VK_D || kbd.vkCode == VK_M);
+
+                    // =========================================================================
+                    // BLOQUEIO ATIVO PREVENTIVO (SHIELD):
+                    // Se o bloqueio estiver ligado e for um atalho destrutivo, intercepta e descarta!
+                    // =========================================================================
+                    if (BlockDestructiveHotkeys && (isDesktopSwitch || isMinimizeAll))
+                    {
+                        string reason = isDesktopSwitch ? "Troca Fantasma de Desktop (Win+Ctrl+Setas)" : "Minimização de Janelas (Win+D/M)";
+                        OnBlockedEvent?.Invoke($"[ESCUDO ATIVO] Interceptado e Bloqueado: {reason}");
+                        VirtualDesktopGuard.ForceReleaseAllModifiers();
+                        return (IntPtr)1; // Retorna 1 para o Windows engolir o scancode antes de trocar de tela!
+                    }
+
                     bool isRelevantKey = isArrowKey || isDesktopSwitch || isMinimizeAll || IsWinDown || IsCtrlDown || kbd.vkCode == VK_D || kbd.vkCode == VK_TAB;
 
                     bool shouldLog = false;
@@ -179,6 +202,11 @@ namespace InputSleuth
         {
             if (nCode >= 0)
             {
+                if (!IsMonitoringEnabled)
+                {
+                    return CallNextHookEx(_mouseHookId, nCode, wParam, lParam);
+                }
+
                 int msg = wParam.ToInt32();
                 var mouse = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
                 bool isInjected = (mouse.flags & LLKHF_INJECTED) != 0;
@@ -222,6 +250,12 @@ namespace InputSleuth
                 }
                 else if (msg == WM_MOUSEHWHEEL)
                 {
+                    if (BlockHorizontalTilt)
+                    {
+                        OnBlockedEvent?.Invoke("[ESCUDO ATIVO] Tilt horizontal de mouse (scroll lateral que causa troca de desktop) foi interceptado e bloqueado!");
+                        return (IntPtr)1; // Retorna 1 para engolir o tilt horizontal
+                    }
+
                     bool shouldLog = (FilterMode != LogFilterMode.ApplicationsOnly) || isInjected;
                     if (shouldLog)
                     {
