@@ -17,6 +17,17 @@ namespace InputSleuth
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
         /// <summary>
+        /// Neutraliza o gatilho da tecla Windows no Shell do Windows.
+        /// Envia uma tecla inerte (0x07 = VK_UNDEFINED) para que o Windows registre
+        /// que a tecla Win foi usada em combinação e NÃO deve abrir o Menu Iniciar nem minimizar jogos.
+        /// </summary>
+        public static void NeutralizeStartMenuTrigger()
+        {
+            keybd_event(0x07, 0, 0, UIntPtr.Zero);
+            keybd_event(0x07, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+        }
+
+        /// <summary>
         /// Envia scancodes de liberação (KEYUP) para todas as teclas modificadoras.
         /// Destrava o estado lógico do kernel caso a tecla Windows, Ctrl ou Alt tenha ficado presa.
         /// </summary>

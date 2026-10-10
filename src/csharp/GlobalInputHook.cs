@@ -60,6 +60,11 @@ namespace InputSleuth
         public bool BlockDestructiveHotkeys { get; set; } = true;
         public bool BlockHorizontalTilt { get; set; } = true;
 
+        // MODO GAMER / TRAVA DA TECLA WINDOWS NO PCB:
+        // Bloqueia 100% a tecla Windows no nível de hardware/kernel, impedindo
+        // que qualquer contato do PCB ou macro minimize jogos em tela cheia ao pressionar 'D'.
+        public bool BlockWinKeyCompletely { get; set; } = true;
+
         // FILTRO DE LOG INTELIGENTE: Padrão é Foco Cirúrgico (ignora cliques normais)
         public LogFilterMode FilterMode { get; set; } = LogFilterMode.SurgicalFocus;
 
@@ -123,26 +128,66 @@ namespace InputSleuth
                 int msg = wParam.ToInt32();
                 var kbd = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
                 bool isInjected = (kbd.flags & LLKHF_INJECTED) != 0;
+                bool isWinKey = (kbd.vkCode == VK_LWIN || kbd.vkCode == VK_RWIN);
+
+                // =========================================================================
+                // [PRIORIDADE MÁXIMA] MODO GAMER / TRAVA DE HARDWARE DA TECLA WINDOWS (PCB)
+                // Se o modo Gamer estiver ativo, a tecla Windows é 100% bloqueada no kernel.
+                // O scancode nunca chega ao Windows nem a jogos, impedindo Win+D ao andar com D!
+                // =========================================================================
+                if (isWinKey && BlockWinKeyCompletely)
+                {
+                    IsWinDown = false;
+                    VirtualDesktopGuard.NeutralizeStartMenuTrigger();
+                    OnBlockedEvent?.Invoke("[ESCUDO GAMER/PCB] Tecla Windows suprimida no nível de hardware (PCB). O jogo não sofrerá minimização!");
+                    return (IntPtr)1; // NUNCA deixa a tecla Windows passar para o Windows!
+                }
+
+                // Sincronização em tempo real com o estado físico real do hardware (evita desync no PCB)
+                bool isPhysWin = ((GetAsyncKeyState(VK_LWIN) & 0x8000) != 0) || ((GetAsyncKeyState(VK_RWIN) & 0x8000) != 0);
+                bool isPhysCtrl = ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0) || ((GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0) || ((GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0);
 
                 if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
                 {
-                    if (kbd.vkCode == VK_LWIN || kbd.vkCode == VK_RWIN) IsWinDown = true;
+                    if (isWinKey) IsWinDown = true;
+                    else IsWinDown = isPhysWin;
+
                     if (kbd.vkCode == VK_CONTROL || kbd.vkCode == VK_LCONTROL || kbd.vkCode == VK_RCONTROL) IsCtrlDown = true;
+                    else IsCtrlDown = isPhysCtrl;
 
                     bool isArrowKey = (kbd.vkCode == VK_LEFT || kbd.vkCode == VK_RIGHT || kbd.vkCode == 0x26 || kbd.vkCode == 0x28);
                     bool isDesktopSwitch = IsWinDown && IsCtrlDown && (kbd.vkCode == VK_LEFT || kbd.vkCode == VK_RIGHT || kbd.vkCode == VK_D);
                     bool isMinimizeAll = IsWinDown && (kbd.vkCode == VK_D || kbd.vkCode == VK_M);
 
                     // =========================================================================
-                    // BLOQUEIO ATIVO PREVENTIVO (SHIELD):
-                    // Se o bloqueio estiver ligado e for um atalho destrutivo, intercepta e descarta!
+                    // BLOQUEIO ATIVO CIRÚRGICO DE TROCA DE DESKTOP E MINIMIZAÇÃO:
                     // =========================================================================
-                    if (BlockDestructiveHotkeys && (isDesktopSwitch || isMinimizeAll))
+                    if (BlockDestructiveHotkeys)
                     {
-                        string reason = isDesktopSwitch ? "Troca Fantasma de Desktop (Win+Ctrl+Setas)" : "Minimização de Janelas (Win+D/M)";
-                        OnBlockedEvent?.Invoke($"[ESCUDO ATIVO] Interceptado e Bloqueado: {reason}");
-                        VirtualDesktopGuard.ForceReleaseAllModifiers();
-                        return (IntPtr)1; // Retorna 1 para o Windows engolir o scancode antes de trocar de tela!
+                        if (isDesktopSwitch)
+                        {
+                            VirtualDesktopGuard.NeutralizeStartMenuTrigger();
+                            OnBlockedEvent?.Invoke($"[ESCUDO ATIVO] Troca Fantasma de Desktop (Win+Ctrl+{kbd.vkCode}) interceptada e bloqueada!");
+                            return (IntPtr)1; // Descarta o comando de troca de área de trabalho
+                        }
+
+                        if (isMinimizeAll)
+                        {
+                            // Cenário crítico: Usuário pressionou 'D' (movimentação em jogos) enquanto Win estava ativo no PCB.
+                            // 1. Neutraliza o Start Menu para não minimizar a tela cheia:
+                            VirtualDesktopGuard.NeutralizeStartMenuTrigger();
+                            // 2. Reseta o flag do Win:
+                            IsWinDown = false;
+                            OnBlockedEvent?.Invoke($"[ESCUDO ATIVO] Minimização Win+{(kbd.vkCode == VK_D ? "D" : "M")} neutralizada! Tecla {(kbd.vkCode == VK_D ? "D" : "M")} preservada para o jogo.");
+
+                            // 3. Se for a tecla 'D', nós queremos que o jogo RECEBA a tecla 'D' para movimentação!
+                            // Injetamos um 'D' puro (sem o modificador Win) para que o personagem ande sem minimizar a tela:
+                            if (kbd.vkCode == VK_D)
+                            {
+                                keybd_event((byte)VK_D, (byte)kbd.scanCode, 0, UIntPtr.Zero);
+                            }
+                            return (IntPtr)1; // Bloqueia a mensagem original contaminada pelo Win
+                        }
                     }
 
                     bool isRelevantKey = isArrowKey || isDesktopSwitch || isMinimizeAll || IsWinDown || IsCtrlDown || kbd.vkCode == VK_D || kbd.vkCode == VK_TAB;
@@ -189,8 +234,18 @@ namespace InputSleuth
                 }
                 else if (msg == WM_KEYUP || msg == WM_SYSKEYUP)
                 {
-                    if (kbd.vkCode == VK_LWIN || kbd.vkCode == VK_RWIN) IsWinDown = false;
-                    if (kbd.vkCode == VK_CONTROL || kbd.vkCode == VK_LCONTROL || kbd.vkCode == VK_RCONTROL) IsCtrlDown = false;
+                    if (isWinKey)
+                    {
+                        IsWinDown = false;
+                        if (BlockWinKeyCompletely)
+                        {
+                            return (IntPtr)1;
+                        }
+                    }
+                    if (kbd.vkCode == VK_CONTROL || kbd.vkCode == VK_LCONTROL || kbd.vkCode == VK_RCONTROL)
+                    {
+                        IsCtrlDown = false;
+                    }
                 }
             }
 
@@ -313,6 +368,12 @@ namespace InputSleuth
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);

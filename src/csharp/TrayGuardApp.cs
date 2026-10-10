@@ -18,6 +18,7 @@ namespace InputSleuth
 
         // Itens de Menu do Contexto
         private readonly ToolStripMenuItem _menuStatus;
+        private readonly ToolStripMenuItem _menuGameMode;
         private readonly ToolStripMenuItem _menuMonitoring;
         private readonly ToolStripMenuItem _menuShield;
         private readonly ToolStripMenuItem _menuBlockTilt;
@@ -30,6 +31,7 @@ namespace InputSleuth
                 IsMonitoringEnabled = true,
                 BlockDestructiveHotkeys = true,
                 BlockHorizontalTilt = true,
+                BlockWinKeyCompletely = true, // Padrão ATIVADO para proteger jogos em tela cheia e teclados com defeito no PCB
                 FilterMode = LogFilterMode.SurgicalFocus
             };
 
@@ -53,6 +55,16 @@ namespace InputSleuth
             contextMenu.Items.Add(_menuThreatsCounter);
 
             contextMenu.Items.Add(new ToolStripSeparator());
+
+            // Opção Especial: Modo Gamer / Bloqueio Total da Tecla Windows no PCB
+            _menuGameMode = new ToolStripMenuItem("🎮 Modo Gamer / WinLock (Trava Tecla Win no PCB)", null, OnToggleGameMode)
+            {
+                Checked = _hook.BlockWinKeyCompletely,
+                CheckOnClick = true,
+                Font = new Font(SystemFonts.DefaultFont, FontStyle.Bold),
+                ToolTipText = "Bloqueia a tecla Windows 100% no nível de kernel, garantindo que pressionar 'D' em jogos de tela cheia nunca minimize a janela."
+            };
+            contextMenu.Items.Add(_menuGameMode);
 
             // Opção 1: Ligar/Desligar Monitoramento
             _menuMonitoring = new ToolStripMenuItem("Monitoramento em Tempo Real", null, OnToggleMonitoring)
@@ -156,6 +168,17 @@ namespace InputSleuth
             }
         }
 
+        private void OnToggleGameMode(object? sender, EventArgs e)
+        {
+            _hook.BlockWinKeyCompletely = _menuGameMode.Checked;
+            UpdateTrayAppearance();
+
+            string status = _hook.BlockWinKeyCompletely
+                ? "LIGADO (Tecla Win bloqueada 100% no PCB; jogos em tela cheia protegidos contra minimização ao pressionar 'D')"
+                : "DESLIGADO (Tecla Win restaurada para uso normal no Windows)";
+            _notifyIcon.ShowBalloonTip(3000, "🎮 Modo Gamer / WinLock", $"Proteção de Hardware {status}.", ToolTipIcon.Info);
+        }
+
         private void OnToggleMonitoring(object? sender, EventArgs e)
         {
             _hook.IsMonitoringEnabled = _menuMonitoring.Checked;
@@ -203,6 +226,11 @@ namespace InputSleuth
             {
                 _notifyIcon.Icon = CreateShieldIcon(Color.Gray);
                 _notifyIcon.Text = "InputSleuth Guard - Monitoramento Desligado";
+            }
+            else if (_hook.BlockWinKeyCompletely)
+            {
+                _notifyIcon.Icon = CreateShieldIcon(Color.LimeGreen);
+                _notifyIcon.Text = $"InputSleuth Guard - [MODO GAMER/WINLOCK] Protegido ({_blockedThreatsCount} bloqueios)";
             }
             else if (_hook.BlockDestructiveHotkeys)
             {

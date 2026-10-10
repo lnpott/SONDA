@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Monitor,
   Check,
+  Gamepad2,
 } from "lucide-react";
 
 interface SystemTrayWidgetProps {
@@ -22,6 +23,8 @@ interface SystemTrayWidgetProps {
   onToggleMonitoring: () => void;
   isShieldActive: boolean;
   onToggleShield: () => void;
+  isGameModeActive?: boolean;
+  onToggleGameMode?: () => void;
   blockedCount: number;
   onEmergencyUnstick: () => void;
   onSimulateTestAttack: () => void;
@@ -35,6 +38,8 @@ export const SystemTrayWidget: React.FC<SystemTrayWidgetProps> = ({
   onToggleMonitoring,
   isShieldActive,
   onToggleShield,
+  isGameModeActive = true,
+  onToggleGameMode,
   blockedCount,
   onEmergencyUnstick,
   onSimulateTestAttack,
@@ -184,7 +189,35 @@ export const SystemTrayWidget: React.FC<SystemTrayWidgetProps> = ({
             </div>
 
             {/* Master Switches (Ligar/Desligar Monitoramento & Bloqueio) */}
-            <div className="space-y-2 bg-neutral-950/80 p-3 rounded-xl border border-neutral-800/80">
+            <div className="space-y-2.5 bg-neutral-950/80 p-3 rounded-xl border border-neutral-800/80">
+              {/* Switch 0: Modo Gamer / WinLock (Trava Tecla Win no PCB) */}
+              <div className="p-2 rounded-lg bg-emerald-950/40 border border-emerald-800/60 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+                    <Gamepad2 className="w-3.5 h-3.5" />
+                    <span>Modo Gamer / WinLock (PCB)</span>
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-900 text-emerald-200 font-mono">
+                      JOGOS
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-neutral-400 mt-0.5">
+                    Bloqueia tecla Win no PCB para 'D' nunca minimizar jogo
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onToggleGameMode}
+                  className={`w-12 h-6 rounded-full transition-colors p-0.5 flex items-center shrink-0 ml-2 ${
+                    isGameModeActive
+                      ? "bg-emerald-500 justify-end"
+                      : "bg-neutral-800 justify-start"
+                  }`}
+                  title="Ligar ou Desligar o Modo Gamer / Trava WinLock"
+                >
+                  <span className="w-5 h-5 rounded-full bg-white shadow-md" />
+                </button>
+              </div>
+
               {/* Switch 1: Monitoramento de Entrada */}
               <div className="flex items-center justify-between">
                 <div>

@@ -17,6 +17,9 @@ import {
   Radio,
   Crosshair,
   Sparkles,
+  Gamepad2,
+  CheckCircle2,
+  Cpu,
 } from "lucide-react";
 
 interface InputSourceVisualizerProps {
@@ -586,6 +589,91 @@ export const InputSourceVisualizer: React.FC<InputSourceVisualizerProps> = ({
                 SHIFT
               </span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* PCB Hardware & Fullscreen Gaming Diagnostics Banner (Tecla D & WinLock) */}
+      <div className="p-4 bg-gradient-to-r from-emerald-950/40 via-neutral-900 to-cyan-950/40 border border-emerald-800/80 rounded-xl space-y-3 shadow-lg">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-emerald-950 border border-emerald-700 text-emerald-300">
+              <Gamepad2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white tracking-tight">
+                  Auditoria de Hardware do PCB & Jogos em Tela Cheia (Tecla D & WinLock)
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-900/80 text-emerald-200 border border-emerald-600">
+                  ANTI-MINIMIZAÇÃO
+                </span>
+              </div>
+              <p className="text-xs text-neutral-300 mt-0.5">
+                Validação cirúrgica para evitar que pressionar a <strong>tecla D</strong> (andar para direita em jogos) acione <strong>Win + D</strong> devido a contato contínuo, trilha ou macro no PCB do teclado.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (onCaptureEvent) {
+                  onCaptureEvent({
+                    id: `sim-d-${Date.now()}`,
+                    timestamp: Date.now(),
+                    timeFormatted: new Date().toLocaleTimeString(),
+                    source: "synthetic",
+                    eventType: "TESTE-PCB-TECLA-D",
+                    key: "d",
+                    code: "KeyD",
+                    activeModifiers: { meta: true, ctrl: false, alt: false, shift: false },
+                    isGhostAnomaly: true,
+                    anomalyNote: "[TESTE DE PCB] Tecla D pressionada com sinal Win ativo no hardware. O WinLock neutralizou a minimização!",
+                    anomalySeverity: "critical",
+                  });
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+              title="Testa a neutralização do Win+D garantindo que a tela cheia não seja minimizada"
+            >
+              <Cpu className="w-3.5 h-3.5" />
+              <span>Testar Tecla D com WinLock</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Diagnostic Status Indicators */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-neutral-800/80 text-xs font-mono">
+          <div className="p-2.5 rounded-lg bg-neutral-950/80 border border-neutral-800 flex items-center justify-between">
+            <span className="text-neutral-400">Contato Físico Win no PCB:</span>
+            {activeModifiers.meta ? (
+              <span className="text-rose-400 font-bold flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                ATIVO NO PCB
+              </span>
+            ) : (
+              <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                NEUTRO / LIVRE
+              </span>
+            )}
+          </div>
+
+          <div className="p-2.5 rounded-lg bg-neutral-950/80 border border-neutral-800 flex items-center justify-between">
+            <span className="text-neutral-400">Modo Gamer (WinLock Kernel):</span>
+            <span className="text-cyan-300 font-bold flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+              SUPRESSÃO ATIVA
+            </span>
+          </div>
+
+          <div className="p-2.5 rounded-lg bg-neutral-950/80 border border-neutral-800 flex items-center justify-between">
+            <span className="text-neutral-400">Ação na Tecla 'D' em Jogo:</span>
+            <span className="text-emerald-300 font-bold">
+              PRESERVAR 'D' (MOVIMENTO)
+            </span>
           </div>
         </div>
       </div>

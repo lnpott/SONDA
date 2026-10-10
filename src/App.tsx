@@ -8,6 +8,7 @@ import { RemediationHub } from "./components/RemediationHub";
 import { TroubleshooterWizard } from "./components/TroubleshooterWizard";
 import { CSharpSuite } from "./components/CSharpSuite";
 import { InputSourceVisualizer } from "./components/InputSourceVisualizer";
+import { SystemTrayWidget } from "./components/SystemTrayWidget";
 import { InputEventRecord, ModifierStates, InputChannelsConfig } from "./types";
 import {
   ShieldAlert,
@@ -31,6 +32,30 @@ export default function App() {
     text: string;
     type: "info" | "success" | "warning";
   } | null>(null);
+
+  // Shield & Game Mode WinLock States
+  const [isShieldActive, setIsShieldActive] = useState<boolean>(true);
+  const [isGameModeActive, setIsGameModeActive] = useState<boolean>(true);
+  const [blockedCount, setBlockedCount] = useState<number>(0);
+  const [trayNotification, setTrayNotification] = useState<{
+    title: string;
+    message: string;
+    timestamp: number;
+  } | null>(null);
+
+  const isShieldActiveRef = useRef(isShieldActive);
+  useEffect(() => {
+    isShieldActiveRef.current = isShieldActive;
+  }, [isShieldActive]);
+
+  const isGameModeActiveRef = useRef(isGameModeActive);
+  useEffect(() => {
+    isGameModeActiveRef.current = isGameModeActive;
+  }, [isGameModeActive]);
+
+  const triggerTrayNotification = (title: string, message: string) => {
+    setTrayNotification({ title, message, timestamp: Date.now() });
+  };
 
   // Input Type Recording Channels Configuration State
   const [inputChannels, setInputChannels] = useState<InputChannelsConfig>({
@@ -98,6 +123,21 @@ export default function App() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. Prioridade Gamer / PCB: Se WinLock estiver ativo, anula a tecla Win do PCB
+      if (
+        isGameModeActiveRef.current &&
+        (e.code === "MetaLeft" || e.code === "MetaRight" || e.key === "Meta")
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        setBlockedCount((c) => c + 1);
+        triggerTrayNotification(
+          "🎮 Modo Gamer / WinLock Ativo!",
+          "Tecla Windows bloqueada no PCB físico para proteger jogos em tela cheia contra minimização ao usar 'D'."
+        );
+        return;
+      }
+
       updateModifiers(e);
 
       // Skip recording if keyboard capture is turned off
@@ -107,6 +147,66 @@ export default function App() {
       const isCtrl = e.getModifierState("Control");
       const isAlt = e.getModifierState("Alt");
       const isShift = e.getModifierState("Shift");
+
+      // 2. Proteção contra Minimização Win+D (mesmo se o PCB travou o sinal de Win)
+      if (
+        (e.code === "KeyD" || e.code === "KeyM") &&
+        isMeta &&
+        (isShieldActiveRef.current || isGameModeActiveRef.current)
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        setBlockedCount((c) => c + 1);
+        triggerTrayNotification(
+          "🛡️ Minimização Win+D Neutralizada!",
+          "O PCB enviou Win+D. A combinação foi neutralizada e a tecla 'D' preservada para o jogo!"
+        );
+        handleEmergencyUnstick();
+        addEvent({
+          id: `shield-d-${Date.now()}`,
+          timestamp: Date.now(),
+          timeFormatted: new Date().toLocaleTimeString(),
+          source: "synthetic",
+          eventType: "BLOCKED-WIN-D-MINIMIZE",
+          key: e.key,
+          code: e.code,
+          activeModifiers: { meta: true, ctrl: isCtrl, alt: isAlt, shift: isShift },
+          isGhostAnomaly: true,
+          anomalyNote: "[ESCUDO ATIVO] Win+D neutralizado no hardware PCB! Tela cheia preservada.",
+          anomalySeverity: "critical",
+        });
+        return;
+      }
+
+      // 3. Proteção contra Troca de Desktop Win+Ctrl+Setas
+      if (
+        (e.code === "ArrowRight" || e.code === "ArrowLeft") &&
+        (isMeta || isCtrl) &&
+        isShieldActiveRef.current
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        setBlockedCount((c) => c + 1);
+        triggerTrayNotification(
+          "🛡️ Troca de Desktop Interceptada!",
+          `Atalho ${isCtrl ? "Ctrl+" : ""}${isMeta ? "Win+" : ""}${e.code} bloqueado antes de atingir o Windows.`
+        );
+        handleEmergencyUnstick();
+        addEvent({
+          id: `shield-desktop-${Date.now()}`,
+          timestamp: Date.now(),
+          timeFormatted: new Date().toLocaleTimeString(),
+          source: "synthetic",
+          eventType: "BLOCKED-DESKTOP-SWITCH",
+          key: e.key,
+          code: e.code,
+          activeModifiers: { meta: isMeta, ctrl: isCtrl, alt: isAlt, shift: isShift },
+          isGhostAnomaly: true,
+          anomalyNote: "[ESCUDO ATIVO] Troca fantasma de Desktop bloqueada com sucesso!",
+          anomalySeverity: "critical",
+        });
+        return;
+      }
 
       let isGhost = false;
       let note: string | undefined = undefined;
@@ -379,6 +479,9 @@ export default function App() {
         onEmergencyUnstick={handleEmergencyUnstick}
         onExportReport={handleExportReport}
         anomaliesCount={anomalies.length}
+        isShieldActive={isShieldActive}
+        onToggleShield={() => setIsShieldActive(!isShieldActive)}
+        blockedCount={blockedCount}
       />
 
       {/* Main Content Workspace */}
@@ -576,6 +679,41 @@ export default function App() {
           <span>Local Hardware Auditing</span>
         </div>
       </footer>
+
+      {/* Windows 11 Style System Tray Daemon Widget */}
+      <SystemTrayWidget
+        isMonitoringActive={isRecording}
+        onToggleMonitoring={() => setIsRecording(!isRecording)}
+        isShieldActive={isShieldActive}
+        onToggleShield={() => {
+          setIsShieldActive(!isShieldActive);
+          showToast(
+            `Escudo de Bloqueio ${!isShieldActive ? "LIGADO" : "DESLIGADO"}.`,
+            !isShieldActive ? "success" : "info"
+          );
+        }}
+        isGameModeActive={isGameModeActive}
+        onToggleGameMode={() => {
+          setIsGameModeActive(!isGameModeActive);
+          showToast(
+            `Modo Gamer / WinLock (Trava PCB) ${!isGameModeActive ? "LIGADO" : "DESLIGADO"}.`,
+            !isGameModeActive ? "success" : "info"
+          );
+        }}
+        blockedCount={blockedCount}
+        onEmergencyUnstick={handleEmergencyUnstick}
+        onSimulateTestAttack={() => {
+          setBlockedCount((c) => c + 1);
+          triggerTrayNotification(
+            "🛡️ Ataque Fantasma Simulado Interceptado!",
+            "Tentativa de troca de tela ou minimização Win+D neutralizada com sucesso."
+          );
+          showToast("🛡️ Escudo Tray: Atalho neutralizado!", "success");
+        }}
+        onOpenCSharpTab={() => setActiveTab("csharp")}
+        trayNotification={trayNotification}
+        onDismissNotification={() => setTrayNotification(null)}
+      />
     </div>
   );
 }

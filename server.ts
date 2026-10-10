@@ -393,13 +393,15 @@ app.get("/api/csharp/files", (req, res) => {
       const fullPath = path.join(csharpDir, fn);
       const content = fs.readFileSync(fullPath, "utf-8");
       let description = "";
-      if (fn === "Program.cs") description = "Ponto de entrada (Main) em modo de detecção pura, monitoramento em tempo real e abertura de relatório";
+      if (fn === "Program.cs") description = "Ponto de entrada (Main) com menu interativo: Foco Cirúrgico, Apenas Aplicativos, Auditoria Total ou Modo Tray (Bandeja)";
+      else if (fn === "TrayGuardApp.cs") description = "Aplicativo nativo de Bandeja do Sistema (Windows System Tray) com menu de contexto, Modo Gamer (WinLock PCB) e notificações";
       else if (fn === "OriginInspector.cs") description = "Rastreador forense de origem (Hardware vs Software/Injeção, processo ativo, janela sob mouse e gravação do relatório relatorio_auditoria_origem.txt)";
-      else if (fn === "GlobalInputHook.cs") description = "Hook Win32 de baixo nível em modo pass-through (zero bloqueio): detecta injeção sintética (LLKHF_INJECTED) e repassa ao rastreador";
-      else if (fn === "VirtualDesktopGuard.cs") description = "Utilitários manuais para destravamento de modificadores e desativação opcional de gestos de touchpad";
+      else if (fn === "GlobalInputHook.cs") description = "Hook Win32 de baixo nível com sincronização GetAsyncKeyState, Modo Gamer (WinLock PCB) e bloqueio cirúrgico";
+      else if (fn === "VirtualDesktopGuard.cs") description = "Utilitários manuais para neutralizar Start Menu, destravar modificadores e desativar gestos de touchpad";
       else if (fn === "ProcessForensics.cs") description = "Auditor de processos ativos suspeitos (AutoHotkey, Logitech Options, Razer Synapse, iCUE)";
-      else if (fn === "InputSleuth.csproj") description = "Arquivo de projeto moderno .NET 8 / C# pronto para dotnet run";
+      else if (fn === "InputSleuth.csproj") description = "Arquivo de projeto moderno .NET 8 / C# pronto para dotnet run com suporte a Windows Forms";
       else if (fn === "Executar.bat") description = "Script de 1 clique para compilar e executar o diagnosticador de origem no Windows";
+      else if (fn === "Executar_Tray.bat") description = "Script de 1 clique para compilar e iniciar diretamente no Tray (ao lado do relógio do Windows)";
 
       return {
         fileName: fn,
