@@ -7,6 +7,7 @@ interface HeaderProps {
   onEmergencyUnstick: () => void;
   onExportReport: () => void;
   anomaliesCount: number;
+  snapshotsCount?: number;
   isShieldActive?: boolean;
   onToggleShield?: () => void;
   blockedCount?: number;
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   onEmergencyUnstick,
   onExportReport,
   anomaliesCount,
+  snapshotsCount = 0,
   isShieldActive = true,
   onToggleShield,
   blockedCount = 0,
@@ -25,6 +27,8 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems = [
     { id: "csharp", label: "Código C# (.NET 8)" },
     { id: "telemetry", label: "Live Telemetry" },
+    { id: "snapshots", label: "Snapshots (5s)", badge: snapshotsCount },
+    { id: "trends", label: "Forensic Trends", badge: anomaliesCount > 0 ? anomaliesCount : undefined },
     { id: "visualizer", label: "Input Heatmap" },
     { id: "sandbox", label: "Click Sandbox" },
     { id: "keyboard", label: "Modifier Matrix" },
@@ -62,11 +66,16 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`hover:text-white transition-colors relative py-1 ${
+              className={`hover:text-white transition-colors relative py-1 flex items-center gap-1.5 ${
                 activeTab === item.id ? "text-white font-semibold" : ""
               }`}
             >
-              {item.label}
+              <span>{item.label}</span>
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-rose-950 text-rose-300 border border-rose-800">
+                  {item.badge}
+                </span>
+              )}
               {activeTab === item.id && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500" />
               )}
@@ -131,13 +140,18 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`whitespace-nowrap px-2.5 py-1 rounded transition-colors ${
+            className={`whitespace-nowrap px-2.5 py-1 rounded transition-colors flex items-center gap-1.5 ${
               activeTab === item.id
                 ? "bg-neutral-800 text-white font-semibold"
                 : "hover:text-neutral-200"
             }`}
           >
-            {item.label}
+            <span>{item.label}</span>
+            {item.badge !== undefined && item.badge > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-rose-950 text-rose-300 border border-rose-800">
+                {item.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>

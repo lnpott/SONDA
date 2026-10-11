@@ -8,7 +8,7 @@ namespace InputSleuth
     /// Capturador global de baixo nível para Mouse e Teclado usando Win32 API.
     /// Detecta injeção sintética de software (LLKHF_INJECTED), botões de polegar (Logitech) e modificadores travados.
     /// </summary>
-    public class GlobalInputHook : IDisposable
+    public sealed class GlobalInputHook : IDisposable
     {
         private const int WH_KEYBOARD_LL = 13;
         private const int WH_MOUSE_LL = 14;
@@ -397,7 +397,7 @@ namespace InputSleuth
         HorizontalTiltScroll
     }
 
-    public class InputAnomalyEvent
+    public sealed class InputAnomalyEvent
     {
         public DateTime Timestamp { get; set; }
         public AnomalyType Type { get; set; }

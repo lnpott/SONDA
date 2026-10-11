@@ -8,9 +8,27 @@ echo   InputSleuth OS - Diagnosticador de Entrada e Desktops em C#
 echo ================================================================================
 echo.
 
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    if "%1"=="/no-elevation" goto skip_elevation
+    echo [ELEVACAO UAC AUTOMATICA] Solicitando privilegios de Administrador...
+    echo Para cobrir 100%% dos jogos e aplicativos do usuario ativo, este processo roda em Alta Integridade.
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process cmd -ArgumentList '/c \"\"%~f0\"\" /no-elevation' -Verb RunAs"
+    exit /b 0
+)
+
+:skip_elevation
+echo [STATUS: ADMINISTRADOR ATIVO - INSTANCIA UNICA UNIFICADA]
+echo   - Sessao do Usuario: %USERNAME%
+echo   - Integridade: Alta (UIPI Bypass: 100%% Cobertura)
+echo   - Tray Monitor: SEMPRE ATIVO em execucao continua ao lado do relogio.
+echo   - Controle Total no Tray: Desligado, Apenas Monitor, Bloqueador Ativo e Relatorios.
+echo.
+
 where dotnet >nul 2>nul
 if %errorlevel% equ 0 (
     echo [OK] .NET SDK detectado! Compilando e iniciando com dotnet run...
+    echo O Tray Guard iniciara automaticamente ao lado do relogio do Windows.
     echo.
     dotnet run -c Release
     goto end

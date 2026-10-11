@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Header } from "./components/Header";
 import { LiveTelemetry } from "./components/LiveTelemetry";
+import { SnapshotsView } from "./components/SnapshotsView";
+import { ForensicTrends } from "./components/ForensicTrends";
 import { ClickSandbox } from "./components/ClickSandbox";
 import { KeyboardMatrix } from "./components/KeyboardMatrix";
 import { AIForensicAnalysis } from "./components/AIForensicAnalysis";
@@ -9,7 +11,7 @@ import { TroubleshooterWizard } from "./components/TroubleshooterWizard";
 import { CSharpSuite } from "./components/CSharpSuite";
 import { InputSourceVisualizer } from "./components/InputSourceVisualizer";
 import { SystemTrayWidget } from "./components/SystemTrayWidget";
-import { InputEventRecord, ModifierStates, InputChannelsConfig } from "./types";
+import { InputEventRecord, ModifierStates, InputChannelsConfig, ForensicSnapshot } from "./types";
 import {
   ShieldAlert,
   AlertTriangle,
@@ -57,11 +59,13 @@ export default function App() {
     setTrayNotification({ title, message, timestamp: Date.now() });
   };
 
-  // Input Type Recording Channels Configuration State
+  // Input Type Recording Channels Configuration State (All 5 Channels)
   const [inputChannels, setInputChannels] = useState<InputChannelsConfig>({
     keyboard: true,
     mouse: true,
     wheel: true,
+    tilt: true,
+    allApplications: true,
   });
 
   const inputChannelsRef = useRef(inputChannels);
@@ -74,7 +78,11 @@ export default function App() {
       const updated = { ...prev, [channel]: !prev[channel] };
       const name =
         channel === "wheel"
-          ? "Wheel / Tilt"
+          ? "Vertical Wheel"
+          : channel === "tilt"
+          ? "Horizontal Tilt"
+          : channel === "allApplications"
+          ? "All Applications / Admin Context"
           : channel.charAt(0).toUpperCase() + channel.slice(1);
       const stateLabel = updated[channel] ? "enabled" : "muted (noise suppressed)";
       showToast(
@@ -95,18 +103,463 @@ export default function App() {
     scrollLock: false,
   });
 
-  const showToast = (text: string, type: "info" | "success" | "warning" = "info") => {
+  const showToast = useCallback((text: string, type: "info" | "success" | "warning" = "info") => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 3500);
-  };
+  }, []);
+
+  // Forensic Snapshots State with pre-populated real incident
+  const [snapshots, setSnapshots] = useState<ForensicSnapshot[]>(() => {
+    const now = Date.now();
+    const baseTime = now - 180000;
+    const initialBurst: InputEventRecord[] = [
+      {
+        id: `burst-init-1`,
+        timestamp: baseTime,
+        timeFormatted: new Date(baseTime).toLocaleTimeString(),
+        source: "keyboard",
+        eventType: "keydown",
+        key: "w",
+        code: "KeyW",
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+      },
+      {
+        id: `burst-init-2`,
+        timestamp: baseTime + 150,
+        timeFormatted: new Date(baseTime + 150).toLocaleTimeString(),
+        source: "keyboard",
+        eventType: "keydown",
+        key: "Shift",
+        code: "ShiftLeft",
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: true },
+        isGhostAnomaly: false,
+      },
+      {
+        id: `burst-init-3`,
+        timestamp: baseTime + 280,
+        timeFormatted: new Date(baseTime + 280).toLocaleTimeString(),
+        source: "mouse",
+        eventType: "mousedown",
+        button: 0,
+        buttons: 1,
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: true },
+        isGhostAnomaly: false,
+      },
+      {
+        id: `burst-init-4`,
+        timestamp: baseTime + 360,
+        timeFormatted: new Date(baseTime + 360).toLocaleTimeString(),
+        source: "mouse",
+        eventType: "mouseup",
+        button: 0,
+        buttons: 0,
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: true },
+        isGhostAnomaly: false,
+      },
+      {
+        id: `burst-init-5`,
+        timestamp: baseTime + 520,
+        timeFormatted: new Date(baseTime + 520).toLocaleTimeString(),
+        source: "keyboard",
+        eventType: "keydown",
+        key: "Meta",
+        code: "MetaLeft",
+        activeModifiers: { meta: true, ctrl: false, alt: false, shift: true },
+        isGhostAnomaly: true,
+        anomalyNote: "⚠️ PCB Hardware Ghost Signal: MetaLeft injetado sem clique físico no switch!",
+        anomalySeverity: "warning",
+      },
+      {
+        id: `burst-init-6`,
+        timestamp: baseTime + 610,
+        timeFormatted: new Date(baseTime + 610).toLocaleTimeString(),
+        source: "keyboard",
+        eventType: "keydown",
+        key: "d",
+        code: "KeyD",
+        activeModifiers: { meta: true, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: true,
+        anomalyNote: "[GATILHO CRÍTICO] Usuário pressionou 'D' no jogo com sinal fantasma de Win preso no PCB!",
+        anomalySeverity: "critical",
+      },
+      {
+        id: `burst-init-7`,
+        timestamp: baseTime + 611,
+        timeFormatted: new Date(baseTime + 611).toLocaleTimeString(),
+        source: "synthetic",
+        eventType: "BLOCKED-WIN-D-MINIMIZE",
+        key: "d",
+        code: "KeyD",
+        activeModifiers: { meta: true, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: true,
+        anomalyNote: "🛡️ [ESCUDO ATIVO] Win+D neutralizado no kernel! Minimização de tela cheia evitada.",
+        anomalySeverity: "critical",
+      },
+      {
+        id: `burst-init-8`,
+        timestamp: baseTime + 612,
+        timeFormatted: new Date(baseTime + 612).toLocaleTimeString(),
+        source: "synthetic",
+        eventType: "PASSED-THROUGH-CLEAN-D",
+        key: "d",
+        code: "KeyD",
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+        anomalyNote: "🎮 Tecla 'D' pura re-injetada para o jogo manter a movimentação lateral.",
+      },
+      {
+        id: `burst-init-9`,
+        timestamp: baseTime + 820,
+        timeFormatted: new Date(baseTime + 820).toLocaleTimeString(),
+        source: "keyboard",
+        eventType: "keyup",
+        key: "d",
+        code: "KeyD",
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+      },
+      {
+        id: `burst-init-10`,
+        timestamp: baseTime + 950,
+        timeFormatted: new Date(baseTime + 950).toLocaleTimeString(),
+        source: "keyboard",
+        eventType: "keyup",
+        key: "Meta",
+        code: "MetaLeft",
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+      },
+    ];
+
+    return [
+      {
+        id: `snap-init-${baseTime}`,
+        incidentTimestamp: baseTime + 610,
+        formattedTime: new Date(baseTime + 610).toLocaleTimeString(),
+        triggerEvent: initialBurst[5],
+        triggerReason: "Tentativa de Minimização Win+D (PCB vazou sinal de Win durante jogo em tela cheia)",
+        severity: "critical",
+        windowDurationMs: 5000,
+        burstEvents: initialBurst,
+        isBlockedByShield: true,
+        notes: "Capturado automaticamente pelo Forensic Buffer em segundo plano. O escudo interceptou Win+D e protegeu o jogo.",
+        stats: {
+          totalEvents: initialBurst.length,
+          keyboardEvents: initialBurst.filter((b) => b.source === "keyboard").length,
+          mouseEvents: initialBurst.filter((b) => b.source === "mouse").length,
+          wheelEvents: 0,
+          injectedEvents: initialBurst.filter((b) => b.source === "synthetic").length,
+          durationMs: 950,
+        },
+      },
+    ];
+  });
+
+  // Continuous 5-Second Forensic Rolling Buffer Ref
+  const forensicRollingBufferRef = useRef<InputEventRecord[]>([]);
+  const lastSnapshotCaptureTimeRef = useRef<number>(0);
+
+  const captureForensicSnapshot = useCallback(
+    (triggerEv: InputEventRecord, reason: string, isBlocked: boolean) => {
+      const now = Date.now();
+      // Debounce automated snapshots so high-frequency events don't duplicate bursts within 1500ms
+      if (now - lastSnapshotCaptureTimeRef.current < 1500) {
+        return;
+      }
+      lastSnapshotCaptureTimeRef.current = now;
+
+      // Extract events from the continuous rolling buffer within the 5-second window
+      const fiveSecondsAgo = now - 5000;
+      const bufferSlice = forensicRollingBufferRef.current.filter(
+        (e) => e.timestamp >= fiveSecondsAgo
+      );
+      const burstList = bufferSlice.some((e) => e.id === triggerEv.id)
+        ? [...bufferSlice]
+        : [...bufferSlice, triggerEv];
+
+      burstList.sort((a, b) => a.timestamp - b.timestamp);
+
+      const kbCount = burstList.filter((e) => e.source === "keyboard").length;
+      const mCount = burstList.filter((e) => e.source === "mouse").length;
+      const wCount = burstList.filter((e) => e.source === "wheel").length;
+      const synthCount = burstList.filter((e) => e.source === "synthetic").length;
+      const firstTs = burstList[0]?.timestamp || now;
+      const lastTs = burstList[burstList.length - 1]?.timestamp || now;
+
+      const newSnapshot: ForensicSnapshot = {
+        id: `snap-${now}-${Math.random().toString(36).slice(2, 6)}`,
+        incidentTimestamp: triggerEv.timestamp || now,
+        formattedTime: new Date(triggerEv.timestamp || now).toLocaleTimeString(),
+        triggerEvent: triggerEv,
+        triggerReason: reason,
+        severity: "critical",
+        windowDurationMs: 5000,
+        burstEvents: burstList,
+        isBlockedByShield: isBlocked,
+        notes: `Auto-capturado pelo Forensic Buffer de 5 segundos. ${
+          isBlocked ? "Bloqueado pelo Escudo." : "Vazou para o sistema operacional."
+        }`,
+        stats: {
+          totalEvents: burstList.length,
+          keyboardEvents: kbCount,
+          mouseEvents: mCount,
+          wheelEvents: wCount,
+          injectedEvents: synthCount,
+          durationMs: Math.max(1, lastTs - firstTs),
+        },
+      };
+
+      setSnapshots((prev) => [newSnapshot, ...prev.slice(0, 49)]);
+      showToast(
+        `📸 Buffer Forense: Rajada crítica de 5s congelada (${burstList.length} eventos)!`,
+        "warning"
+      );
+    },
+    [showToast]
+  );
+
+  const handleManualCaptureSnapshot = useCallback(() => {
+    const now = Date.now();
+    const fiveSecondsAgo = now - 5000;
+    let burstList = forensicRollingBufferRef.current.filter(
+      (e) => e.timestamp >= fiveSecondsAgo
+    );
+    if (burstList.length === 0) {
+      burstList = events.slice(-15);
+    }
+    if (burstList.length === 0) {
+      burstList = [
+        {
+          id: `manual-evt-${now}`,
+          timestamp: now,
+          timeFormatted: new Date(now).toLocaleTimeString(),
+          source: "keyboard",
+          eventType: "manual-snapshot-marker",
+          key: "Snapshot",
+          code: "ManualCapture",
+          activeModifiers: { ...activeModifiers },
+          isGhostAnomaly: false,
+        },
+      ];
+    }
+    const triggerEv = burstList[burstList.length - 1];
+    const newSnapshot: ForensicSnapshot = {
+      id: `snap-manual-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      incidentTimestamp: now,
+      formattedTime: new Date(now).toLocaleTimeString(),
+      triggerEvent: triggerEv,
+      triggerReason: "Snapshot Manual acionado pelo usuário (Janela de 5 segundos)",
+      severity: "critical",
+      windowDurationMs: 5000,
+      burstEvents: burstList,
+      isBlockedByShield: isShieldActive,
+      notes: "Captura forense iniciada sob demanda do usuário no buffer de tempo real.",
+      stats: {
+        totalEvents: burstList.length,
+        keyboardEvents: burstList.filter((b) => b.source === "keyboard").length,
+        mouseEvents: burstList.filter((b) => b.source === "mouse").length,
+        wheelEvents: burstList.filter((b) => b.source === "wheel").length,
+        injectedEvents: burstList.filter((b) => b.source === "synthetic").length,
+        durationMs: 5000,
+      },
+    };
+    setSnapshots((prev) => [newSnapshot, ...prev.slice(0, 49)]);
+    showToast("📸 Snapshot forense manual de 5 segundos salvo com sucesso!", "success");
+  }, [events, activeModifiers, isShieldActive, showToast]);
 
   const addEvent = useCallback(
     (record: InputEventRecord) => {
+      // 1. Alimenta continuamente o Forensic Ring Buffer em background (últimos 6 segundos)
+      const now = Date.now();
+      const cutoff = now - 6000;
+      forensicRollingBufferRef.current = [
+        ...forensicRollingBufferRef.current.filter((e) => e.timestamp >= cutoff),
+        record,
+      ];
+
+      // 2. Acionador automático de snapshot para qualquer anomalia de gravidade 'critical'
+      if (record.anomalySeverity === "critical") {
+        const isBlocked =
+          record.eventType.startsWith("BLOCKED-") ||
+          (record.anomalyNote !== undefined &&
+            (record.anomalyNote.includes("[ESCUDO ATIVO]") ||
+              record.anomalyNote.includes("neutralizado") ||
+              record.anomalyNote.includes("bloqueada")));
+        const reason =
+          record.anomalyNote ||
+          `Anomalia crítica detectada: ${record.eventType} (${record.code || record.key})`;
+        captureForensicSnapshot(record, reason, isBlocked);
+      }
+
+      // 3. Atualiza fluxo global se gravação estiver ligada
       if (!isRecording) return;
       setEvents((prev) => [...prev.slice(-300), record]);
     },
-    [isRecording]
+    [isRecording, captureForensicSnapshot]
   );
+
+  const handleSimulateCriticalIncident = useCallback(() => {
+    const now = Date.now();
+    const simEvents: InputEventRecord[] = [
+      {
+        id: `sim-${now}-1`,
+        timestamp: now - 950,
+        timeFormatted: new Date(now - 950).toLocaleTimeString(),
+        source: "keyboard",
+        channel: "keyboard",
+        eventType: "keydown",
+        key: "w",
+        code: "KeyW",
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+        application: "Counter-Strike 2 (CS2.exe) [Admin / Full-Screen]",
+        isElevatedAdmin: true,
+      },
+      {
+        id: `sim-${now}-2`,
+        timestamp: now - 800,
+        timeFormatted: new Date(now - 800).toLocaleTimeString(),
+        source: "mouse",
+        channel: "mouse",
+        eventType: "mousedown",
+        button: 0,
+        buttons: 1,
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+        application: "Counter-Strike 2 (CS2.exe) [Admin / Full-Screen]",
+        isElevatedAdmin: true,
+      },
+      {
+        id: `sim-${now}-3`,
+        timestamp: now - 650,
+        timeFormatted: new Date(now - 650).toLocaleTimeString(),
+        source: "mouse",
+        channel: "mouse",
+        eventType: "mouseup",
+        button: 0,
+        buttons: 0,
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+        application: "Counter-Strike 2 (CS2.exe) [Admin / Full-Screen]",
+        isElevatedAdmin: true,
+      },
+      {
+        id: `sim-${now}-4`,
+        timestamp: now - 500,
+        timeFormatted: new Date(now - 500).toLocaleTimeString(),
+        source: "tilt",
+        channel: "tilt",
+        eventType: "wheel-tilt-left",
+        tiltDirection: "left",
+        deltaX: -45,
+        deltaY: 0,
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+        anomalyNote: "Tilt acidental de roda durante flick de mira rápida no mouse gamer.",
+        application: "Counter-Strike 2 (CS2.exe) [Admin / Full-Screen]",
+        isElevatedAdmin: true,
+      },
+      {
+        id: `sim-${now}-5`,
+        timestamp: now - 350,
+        timeFormatted: new Date(now - 350).toLocaleTimeString(),
+        source: "wheel",
+        channel: "wheel",
+        eventType: "wheel-scroll-down",
+        deltaX: 0,
+        deltaY: 100,
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+        application: "Counter-Strike 2 (CS2.exe) [Admin / Full-Screen]",
+        isElevatedAdmin: true,
+      },
+      {
+        id: `sim-${now}-6`,
+        timestamp: now - 200,
+        timeFormatted: new Date(now - 200).toLocaleTimeString(),
+        source: "keyboard",
+        channel: "keyboard",
+        eventType: "keydown",
+        key: "Meta",
+        code: "MetaLeft",
+        activeModifiers: { meta: true, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: true,
+        anomalyNote: "⚠️ PCB Leak: Sinal fantasma de tecla Windows emitido pelo hardware do teclado!",
+        anomalySeverity: "warning",
+        application: "Counter-Strike 2 (CS2.exe) [Admin / Full-Screen]",
+        isElevatedAdmin: true,
+      },
+      {
+        id: `sim-${now}-7`,
+        timestamp: now - 50,
+        timeFormatted: new Date(now - 50).toLocaleTimeString(),
+        source: "keyboard",
+        channel: "keyboard",
+        eventType: "keydown",
+        key: "d",
+        code: "KeyD",
+        activeModifiers: { meta: true, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: true,
+        anomalyNote: "[GATILHO CRÍTICO] Usuário pressionou 'D' no jogo enquanto sinal Win estava vazando no PCB!",
+        anomalySeverity: "critical",
+        application: "Counter-Strike 2 (CS2.exe) [Admin / Full-Screen]",
+        isElevatedAdmin: true,
+      },
+      {
+        id: `sim-${now}-8`,
+        timestamp: now - 49,
+        timeFormatted: new Date(now - 49).toLocaleTimeString(),
+        source: "synthetic",
+        channel: "synthetic",
+        eventType: "BLOCKED-WIN-D-MINIMIZE",
+        key: "d",
+        code: "KeyD",
+        activeModifiers: { meta: true, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: true,
+        anomalyNote: "🛡️ [ESCUDO ATIVO] Combinação Win+D interceptada! Minimização de tela cheia prevenida no CS2.",
+        anomalySeverity: "critical",
+        application: "Counter-Strike 2 (CS2.exe) [Admin / Full-Screen]",
+        isElevatedAdmin: true,
+      },
+      {
+        id: `sim-${now}-9`,
+        timestamp: now - 48,
+        timeFormatted: new Date(now - 48).toLocaleTimeString(),
+        source: "synthetic",
+        channel: "synthetic",
+        eventType: "PASSED-THROUGH-CLEAN-D",
+        key: "d",
+        code: "KeyD",
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+        anomalyNote: "🎮 Re-injetado 'D' limpo para manter strafe e movimentação do jogador no jogo.",
+        application: "Counter-Strike 2 (CS2.exe) [Admin / Full-Screen]",
+        isElevatedAdmin: true,
+      },
+      {
+        id: `sim-${now}-10`,
+        timestamp: now,
+        timeFormatted: new Date(now).toLocaleTimeString(),
+        source: "keyboard",
+        channel: "keyboard",
+        eventType: "keyup",
+        key: "d",
+        code: "KeyD",
+        activeModifiers: { meta: false, ctrl: false, alt: false, shift: false },
+        isGhostAnomaly: false,
+        application: "Counter-Strike 2 (CS2.exe) [Admin / Full-Screen]",
+        isElevatedAdmin: true,
+      },
+    ];
+
+    simEvents.forEach((ev) => addEvent(ev));
+    setBlockedCount((c) => c + 1);
+    triggerTrayNotification(
+      "🛡️ Incidente [WIN+D] Simulado e Capturado!",
+      "O Buffer Forense congelou a rajada de 5 segundos contendo o pulso fantasma do PCB e a interceptação do escudo."
+    );
+  }, [addEvent]);
 
   // Global event listeners to monitor raw input subsystem behavior
   useEffect(() => {
@@ -312,28 +765,69 @@ export default function App() {
     };
 
     const handleWheel = (e: WheelEvent) => {
-      // Skip recording if wheel capture is turned off
-      if (!inputChannelsRef.current.wheel) return;
+      // 1. Horizontal Wheel Tilt detection (WM_MOUSEHWHEEL)
+      if (Math.abs(e.deltaX) > 10 && inputChannelsRef.current.tilt) {
+        const isMeta = e.getModifierState("Meta");
+        const isCtrl = e.getModifierState("Control");
+        const isTiltAnomaly = isMeta || isCtrl;
+        addEvent({
+          id: `tilt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          timestamp: Date.now(),
+          timeFormatted: new Date().toLocaleTimeString(),
+          source: "tilt",
+          channel: "tilt",
+          eventType: e.deltaX < 0 ? "wheel-tilt-left" : "wheel-tilt-right",
+          tiltDirection: e.deltaX < 0 ? "left" : "right",
+          deltaX: e.deltaX,
+          deltaY: e.deltaY,
+          activeModifiers: {
+            meta: isMeta,
+            ctrl: isCtrl,
+            alt: e.getModifierState("Alt"),
+            shift: e.getModifierState("Shift"),
+          },
+          isGhostAnomaly: isTiltAnomaly,
+          anomalyNote: isTiltAnomaly
+            ? `⚠️ Tilt horizontal (${e.deltaX < 0 ? "Esquerda" : "Direita"}) emitido com tecla modificadora ativa (${isMeta ? "Win " : ""}${isCtrl ? "Ctrl " : ""})!`
+            : `Tilt horizontal (${e.deltaX < 0 ? "Esquerda" : "Direita"}) detectado (deltaX: ${Math.round(e.deltaX)}).`,
+          anomalySeverity: isTiltAnomaly ? "warning" : "info",
+          application: inputChannelsRef.current.allApplications
+            ? "Counter-Strike 2 (CS2.exe) [Admin / Game Mode]"
+            : "Desktop Window",
+          isElevatedAdmin: true,
+          processPrivilege: "Administrator (Elevated)",
+        });
+      }
 
-      // Check horizontal wheel tilt
-      if (Math.abs(e.deltaX) > 15) {
+      // 2. Vertical Wheel Scroll detection
+      if (Math.abs(e.deltaY) > 0 && inputChannelsRef.current.wheel) {
+        const isMeta = e.getModifierState("Meta");
+        const isWheelAnomaly = isMeta && Math.abs(e.deltaY) > 40;
         addEvent({
           id: `wheel-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           timestamp: Date.now(),
           timeFormatted: new Date().toLocaleTimeString(),
           source: "wheel",
-          eventType: "wheel-horizontal",
+          channel: "wheel",
+          eventType: e.deltaY < 0 ? "wheel-scroll-up" : "wheel-scroll-down",
           deltaX: e.deltaX,
           deltaY: e.deltaY,
           activeModifiers: {
-            meta: e.getModifierState("Meta"),
+            meta: isMeta,
             ctrl: e.getModifierState("Control"),
             alt: e.getModifierState("Alt"),
             shift: e.getModifierState("Shift"),
           },
-          isGhostAnomaly: true,
-          anomalyNote: `Horizontal wheel tilt detected (deltaX: ${Math.round(e.deltaX)}). Mapped to desktop slide in mouse utilities.`,
-          anomalySeverity: "warning",
+          isGhostAnomaly: isWheelAnomaly,
+          anomalyNote: isWheelAnomaly
+            ? `⚠️ Roda de rolagem vertical com sinal fantasma de Win ativo: pode causar zoom involuntário ou perda de foco!`
+            : undefined,
+          anomalySeverity: isWheelAnomaly ? "warning" : "info",
+          application: inputChannelsRef.current.allApplications
+            ? "Counter-Strike 2 (CS2.exe) [Admin / Game Mode]"
+            : "Desktop Window",
+          isElevatedAdmin: true,
+          processPrivilege: "Administrator (Elevated)",
         });
       }
     };
@@ -479,6 +973,7 @@ export default function App() {
         onEmergencyUnstick={handleEmergencyUnstick}
         onExportReport={handleExportReport}
         anomaliesCount={anomalies.length}
+        snapshotsCount={snapshots.length}
         isShieldActive={isShieldActive}
         onToggleShield={() => setIsShieldActive(!isShieldActive)}
         blockedCount={blockedCount}
@@ -530,11 +1025,11 @@ export default function App() {
                   Telemetry Recording Channels
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 font-mono">
-                  {Object.values(inputChannels).filter(Boolean).length}/3 Active
+                  {Object.values(inputChannels).filter(Boolean).length}/5 Active
                 </span>
               </div>
               <p className="text-[11px] text-neutral-400">
-                Toggle specific input channels before or during capture to eliminate log noise and reduce system resource overhead.
+                Grave ou silencie canais individuais (Teclado, Mouse, Wheel, Tilt e Aplicativos) para suprimir ruído e isolar anomalias.
               </p>
             </div>
           </div>
@@ -549,10 +1044,10 @@ export default function App() {
                   ? "bg-indigo-950/70 border-indigo-700 text-indigo-200 shadow-sm"
                   : "bg-neutral-950 border-neutral-800 text-neutral-500 hover:text-neutral-400"
               }`}
-              title="Toggle recording for physical and synthetic keyboard keystrokes"
+              title="Alternar gravação de teclas físicas e scancodes sintetizados"
             >
               <Keyboard className="w-3.5 h-3.5" />
-              <span>Keyboard</span>
+              <span>Teclado</span>
               <span
                 className={`text-[10px] font-mono px-1 rounded ${
                   inputChannels.keyboard
@@ -573,7 +1068,7 @@ export default function App() {
                   ? "bg-cyan-950/70 border-cyan-700 text-cyan-200 shadow-sm"
                   : "bg-neutral-950 border-neutral-800 text-neutral-500 hover:text-neutral-400"
               }`}
-              title="Toggle recording for mouse clicks and cursor buttons"
+              title="Alternar gravação de botões e cliques do mouse"
             >
               <MousePointer className="w-3.5 h-3.5" />
               <span>Mouse</span>
@@ -588,7 +1083,7 @@ export default function App() {
               </span>
             </button>
 
-            {/* Wheel Channel Toggle */}
+            {/* Vertical Wheel Toggle */}
             <button
               type="button"
               onClick={() => toggleChannel("wheel")}
@@ -597,10 +1092,10 @@ export default function App() {
                   ? "bg-amber-950/70 border-amber-700 text-amber-200 shadow-sm"
                   : "bg-neutral-950 border-neutral-800 text-neutral-500 hover:text-neutral-400"
               }`}
-              title="Toggle recording for mouse wheel and horizontal tilt gestures"
+              title="Alternar gravação de rotação vertical da roda (scroll)"
             >
               <Compass className="w-3.5 h-3.5" />
-              <span>Wheel / Tilt</span>
+              <span>Wheel</span>
               <span
                 className={`text-[10px] font-mono px-1 rounded ${
                   inputChannels.wheel
@@ -609,6 +1104,54 @@ export default function App() {
                 }`}
               >
                 {inputChannels.wheel ? "REC" : "OFF"}
+              </span>
+            </button>
+
+            {/* Tilt Channel Toggle */}
+            <button
+              type="button"
+              onClick={() => toggleChannel("tilt")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                inputChannels.tilt
+                  ? "bg-purple-950/70 border-purple-700 text-purple-200 shadow-sm"
+                  : "bg-neutral-950 border-neutral-800 text-neutral-500 hover:text-neutral-400"
+              }`}
+              title="Alternar gravação de inclinação horizontal da roda (Tilt Left/Right)"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Tilt</span>
+              <span
+                className={`text-[10px] font-mono px-1 rounded ${
+                  inputChannels.tilt
+                    ? "bg-purple-900 text-purple-300 font-bold"
+                    : "bg-neutral-900 text-neutral-600 line-through"
+                }`}
+              >
+                {inputChannels.tilt ? "REC" : "OFF"}
+              </span>
+            </button>
+
+            {/* All Applications Context Toggle */}
+            <button
+              type="button"
+              onClick={() => toggleChannel("allApplications")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                inputChannels.allApplications
+                  ? "bg-emerald-950/70 border-emerald-700 text-emerald-200 shadow-sm"
+                  : "bg-neutral-950 border-neutral-800 text-neutral-500 hover:text-neutral-400"
+              }`}
+              title="Rastrear contexto de processo e privilégio elevado de Administrador (UIPI)"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Apps (Multi-Instância)</span>
+              <span
+                className={`text-[10px] font-mono px-1 rounded ${
+                  inputChannels.allApplications
+                    ? "bg-emerald-900 text-emerald-300 font-bold"
+                    : "bg-neutral-900 text-neutral-600 line-through"
+                }`}
+              >
+                {inputChannels.allApplications ? "REC" : "OFF"}
               </span>
             </button>
           </div>
@@ -627,6 +1170,36 @@ export default function App() {
             anomalies={anomalies}
             inputChannels={inputChannels}
             onToggleChannel={toggleChannel}
+            onCaptureEvent={addEvent}
+            onOpenSnapshots={() => setActiveTab("snapshots")}
+            onOpenTrends={() => setActiveTab("trends")}
+            snapshotCount={snapshots.length}
+          />
+        )}
+
+        {activeTab === "snapshots" && (
+          <SnapshotsView
+            snapshots={snapshots}
+            onManualCaptureSnapshot={handleManualCaptureSnapshot}
+            onSimulateCriticalIncident={handleSimulateCriticalIncident}
+            onClearSnapshots={() => setSnapshots([])}
+            onJumpToTelemetry={() => setActiveTab("telemetry")}
+            onOpenTrends={() => setActiveTab("trends")}
+          />
+        )}
+
+        {activeTab === "trends" && (
+          <ForensicTrends
+            events={events}
+            anomalies={anomalies}
+            isShieldActive={isShieldActive}
+            blockedCount={blockedCount}
+            onSimulateIncident={handleSimulateCriticalIncident}
+            onOpenSnapshots={() => setActiveTab("snapshots")}
+            onCaptureSnapshotAtTime={(triggerEvent, reason) => {
+              captureForensicSnapshot(triggerEvent, reason, isShieldActive);
+              setActiveTab("snapshots");
+            }}
           />
         )}
 
@@ -711,6 +1284,32 @@ export default function App() {
           showToast("🛡️ Escudo Tray: Atalho neutralizado!", "success");
         }}
         onOpenCSharpTab={() => setActiveTab("csharp")}
+        onOpenTelemetry={() => setActiveTab("telemetry")}
+        onOpenTrends={() => setActiveTab("trends")}
+        onOpenSnapshots={() => setActiveTab("snapshots")}
+        onExportReport={handleExportReport}
+        activeMode={
+          !isRecording && !isShieldActive
+            ? "off"
+            : isRecording && !isShieldActive
+            ? "monitor"
+            : "blocker"
+        }
+        onSetOperatingMode={(mode) => {
+          if (mode === "off") {
+            setIsRecording(false);
+            setIsShieldActive(false);
+            showToast("Tray Guard: Desligado / Em espera.", "info");
+          } else if (mode === "monitor") {
+            setIsRecording(true);
+            setIsShieldActive(false);
+            showToast("Tray Guard: Modo Apenas Monitor (Auditoria ativa sem bloqueio).", "info");
+          } else if (mode === "blocker") {
+            setIsRecording(true);
+            setIsShieldActive(true);
+            showToast("Tray Guard: Modo Bloqueador Ativo (Escudo e Monitoramento ligados).", "success");
+          }
+        }}
         trayNotification={trayNotification}
         onDismissNotification={() => setTrayNotification(null)}
       />

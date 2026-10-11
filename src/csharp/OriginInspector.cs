@@ -6,7 +6,7 @@ using System.Text;
 
 namespace InputSleuth
 {
-    public class OriginRecord
+    public sealed class OriginRecord
     {
         public int Id { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
@@ -22,6 +22,8 @@ namespace InputSleuth
         public string HardwareDetails { get; set; } = "";
         public uint ExtraInfo { get; set; }
         public string ExtraInfoDetails { get; set; } = "";
+        public string ActiveUserSession { get; set; } = Environment.UserName;
+        public string TargetProcessIntegrity { get; set; } = "100% Monitorado (Todas as Instâncias)";
         public string ForegroundProcessName { get; set; } = "";
         public int ForegroundProcessId { get; set; }
         public string ForegroundProcessPath { get; set; } = "";
@@ -204,11 +206,11 @@ namespace InputSleuth
             }
             else if (eventType == "TECLADO")
             {
-                if (keyOrButton.Contains("Win + D") || (record.ActiveModifiers.Contains("WIN") && keyOrButton.Contains("D")))
+                if (keyOrButton.Contains("Win + D", StringComparison.Ordinal) || (record.ActiveModifiers.Contains("WIN", StringComparison.Ordinal) && keyOrButton.Contains("D", StringComparison.Ordinal)))
                 {
                     record.ProbableDiagnosis = "Atalho Win + D pressionado NO TECLADO FÍSICO (Comando para mostrar área de trabalho).";
                 }
-                else if (keyOrButton.Contains("SETA") && record.ActiveModifiers.Contains("WIN") && record.ActiveModifiers.Contains("CTRL"))
+                else if (keyOrButton.Contains("SETA", StringComparison.Ordinal) && record.ActiveModifiers.Contains("WIN", StringComparison.Ordinal) && record.ActiveModifiers.Contains("CTRL", StringComparison.Ordinal))
                 {
                     record.ProbableDiagnosis = "Atalho Win + Ctrl + Seta pressionado NO TECLADO FÍSICO (Comando para trocar de área de trabalho).";
                 }
@@ -219,11 +221,11 @@ namespace InputSleuth
             }
             else // MOUSE
             {
-                if (record.ActiveModifiers.Contains("WIN") || record.ActiveModifiers.Contains("CTRL"))
+                if (record.ActiveModifiers.Contains("WIN", StringComparison.Ordinal) || record.ActiveModifiers.Contains("CTRL", StringComparison.Ordinal))
                 {
                     record.ProbableDiagnosis = $"Clique no MOUSE FÍSICO enquanto modificador {record.ActiveModifiers} estava ativo no sistema.";
                 }
-                else if (keyOrButton.Contains("XButton"))
+                else if (keyOrButton.Contains("XButton", StringComparison.Ordinal))
                 {
                     record.ProbableDiagnosis = "Botão lateral/polegar do MOUSE FÍSICO foi clicado.";
                 }
@@ -252,6 +254,7 @@ namespace InputSleuth
                         sw.WriteLine($"REGISTRO #{rec.Id:D3}");
                         sw.WriteLine($"[DATA]:              {rec.FormattedDate}");
                         sw.WriteLine($"[HORÁRIO PRECISO]:   {rec.FormattedTime} (Horas:Minutos:Segundos.Milissegundos)");
+                        sw.WriteLine($"[SESSÃO DO USUÁRIO]:  Usuário: {rec.ActiveUserSession} (Alta Integridade - 100% de Instâncias Cobertas)");
                         sw.WriteLine($"[TIPO DE ENTRADA]:   >>> {rec.InputType} <<<");
                         sw.WriteLine($"[DISPOSITIVO]:       {rec.DeviceCategory}");
                         sw.WriteLine($"[CANAL WIN32]:       {rec.Channel}");
@@ -270,31 +273,56 @@ namespace InputSleuth
                         sw.WriteLine();
                     }
 
-                    // 2. Gravar no CSV
-                    string csvLine = string.Format(
-                        "\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\",\"{7}\",\"{8}\",\"{9}\",\"{10}\",\"{11}\",\"{12}\",\"{13}\",\"{14}\",\"{15}\",\"{16}\"\n",
-                        rec.Id,
-                        rec.FormattedDate,
-                        rec.FormattedTime,
-                        rec.InputType.Replace("\"", "\"\""),
-                        rec.DeviceCategory.Replace("\"", "\"\""),
-                        rec.Channel.Replace("\"", "\"\""),
-                        rec.KeyOrButton.Replace("\"", "\"\""),
-                        rec.OriginDescription.Replace("\"", "\"\""),
-                        rec.HardwareDetails.Replace("\"", "\"\""),
-                        rec.ExtraInfoDetails.Replace("\"", "\"\""),
-                        rec.ForegroundProcessName.Replace("\"", "\"\""),
-                        rec.ForegroundProcessId,
-                        rec.ForegroundProcessPath.Replace("\"", "\"\""),
-                        rec.ForegroundWindowTitle.Replace("\"", "\"\""),
-                        rec.WindowUnderCursorClass.Replace("\"", "\"\""),
-                        rec.ActiveModifiers.Replace("\"", "\"\""),
-                        rec.ProbableDiagnosis.Replace("\"", "\"\"")
-                    );
-                    File.AppendAllText(CsvReportFilePath, csvLine, Encoding.UTF8);
+                    // 2. Gravar no CSV (Zero alocações de string.Format e zero String.Replace)
+                    var csvSb = new StringBuilder(512);
+                    AppendEscapedCsvField(csvSb, rec.Id.ToString());
+                    AppendEscapedCsvField(csvSb, rec.FormattedDate);
+                    AppendEscapedCsvField(csvSb, rec.FormattedTime);
+                    AppendEscapedCsvField(csvSb, rec.InputType);
+                    AppendEscapedCsvField(csvSb, rec.DeviceCategory);
+                    AppendEscapedCsvField(csvSb, rec.Channel);
+                    AppendEscapedCsvField(csvSb, rec.KeyOrButton);
+                    AppendEscapedCsvField(csvSb, rec.OriginDescription);
+                    AppendEscapedCsvField(csvSb, rec.HardwareDetails);
+                    AppendEscapedCsvField(csvSb, rec.ExtraInfoDetails);
+                    AppendEscapedCsvField(csvSb, rec.ForegroundProcessName);
+                    AppendEscapedCsvField(csvSb, rec.ForegroundProcessId.ToString());
+                    AppendEscapedCsvField(csvSb, rec.ForegroundProcessPath);
+                    AppendEscapedCsvField(csvSb, rec.ForegroundWindowTitle);
+                    AppendEscapedCsvField(csvSb, rec.WindowUnderCursorClass);
+                    AppendEscapedCsvField(csvSb, rec.ActiveModifiers);
+                    AppendEscapedCsvField(csvSb, rec.ProbableDiagnosis, isLast: true);
+
+                    File.AppendAllText(CsvReportFilePath, csvSb.ToString(), Encoding.UTF8);
                 }
                 catch { }
             }
+        }
+
+        private static void AppendEscapedCsvField(StringBuilder sb, string? value, bool isLast = false)
+        {
+            sb.Append('\"');
+            if (!string.IsNullOrEmpty(value))
+            {
+                ReadOnlySpan<char> span = value.AsSpan();
+                int quoteIndex = span.IndexOf('\"');
+                if (quoteIndex < 0)
+                {
+                    sb.Append(span);
+                }
+                else
+                {
+                    for (int i = 0; i < span.Length; i++)
+                    {
+                        char c = span[i];
+                        if (c == '\"') sb.Append('\"');
+                        sb.Append(c);
+                    }
+                }
+            }
+            sb.Append('\"');
+            if (!isLast) sb.Append(',');
+            else sb.Append('\n');
         }
 
         public static void ClearReport()

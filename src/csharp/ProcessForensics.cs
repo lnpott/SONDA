@@ -1,11 +1,11 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 
 namespace InputSleuth
 {
-    public class SuspectProcessInfo
+    public sealed class SuspectProcessInfo
     {
         public string ProcessName { get; set; } = string.Empty;
         public int Id { get; set; }
@@ -18,11 +18,12 @@ namespace InputSleuth
     /// <summary>
     /// Auditor forense de processos em execução em C#.
     /// Detecta softwares que instalam hooks de teclado/mouse no Windows.
+    /// Utiliza FrozenDictionary do .NET 8 para zero-alocação e máxima velocidade.
     /// </summary>
     public static class ProcessForensics
     {
-        private static readonly Dictionary<string, (string Desc, string Category, string Rec)> KnownCulprits =
-            new(StringComparer.OrdinalIgnoreCase)
+        private static readonly FrozenDictionary<string, (string Desc, string Category, string Rec)> KnownCulprits =
+            new Dictionary<string, (string Desc, string Category, string Rec)>(StringComparer.OrdinalIgnoreCase)
             {
                 ["AutoHotkey"] = (
                     "Interpretador de scripts de automação de teclas/mouse",
@@ -74,30 +75,43 @@ namespace InputSleuth
                     "Driver de Mouse MSI",
                     "Responsável pela atribuição de funções nos botões do mouse MSI."
                 )
-            };
+            }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
         public static List<SuspectProcessInfo> ScanRunningInterferenceSoftware()
         {
             var results = new List<SuspectProcessInfo>();
-            var running = Process.GetProcesses();
+            Process[] running = Process.GetProcesses();
 
-            foreach (var kvp in KnownCulprits)
+            try
             {
-                var matches = running.Where(p => p.ProcessName.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase)).ToList();
-                if (matches.Any())
+                for (int i = 0; i < running.Length; i++)
                 {
-                    foreach (var m in matches)
+                    Process proc = running[i];
+                    string procName = proc.ProcessName;
+
+                    foreach (var kvp in KnownCulprits)
                     {
-                        results.Add(new SuspectProcessInfo
+                        if (procName.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase))
                         {
-                            ProcessName = m.ProcessName,
-                            Id = m.Id,
-                            Description = kvp.Value.Desc,
-                            Category = kvp.Value.Category,
-                            IsRunning = true,
-                            Recommendation = kvp.Value.Rec
-                        });
+                            results.Add(new SuspectProcessInfo
+                            {
+                                ProcessName = procName,
+                                Id = proc.Id,
+                                Description = kvp.Value.Desc,
+                                Category = kvp.Value.Category,
+                                IsRunning = true,
+                                Recommendation = kvp.Value.Rec
+                            });
+                            break;
+                        }
                     }
+                }
+            }
+            finally
+            {
+                for (int i = 0; i < running.Length; i++)
+                {
+                    running[i].Dispose();
                 }
             }
 

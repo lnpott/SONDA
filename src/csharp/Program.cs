@@ -7,7 +7,7 @@ using System.Windows.Forms;
 
 namespace InputSleuth
 {
-    class Program
+    internal sealed class Program
     {
         [DllImport("user32.dll")]
         private static extern bool GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
@@ -41,8 +41,12 @@ namespace InputSleuth
         [STAThread]
         static void Main(string[] args)
         {
-            // Se invocado com --tray ou -t, inicia diretamente o Daemon da Bandeja do Sistema
-            if (args.Length > 0 && (args[0].ToLower().Contains("tray") || args[0].ToLower() == "-t"))
+            // O Tray Monitor fica SEMPRE em execução contínua ao abrir a aplicação (instância única unificada).
+            // Não são necessárias instâncias separadas: o monitor de bandeja inicia por padrão e dá controle total
+            // (Desligado, Apenas Monitorar, Bloqueador Ativo, Relatórios em Tempo Real e Fechar).
+            bool forceConsole = args.Length > 0 && string.Equals(args[0], "--console", StringComparison.OrdinalIgnoreCase);
+
+            if (!forceConsole)
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);

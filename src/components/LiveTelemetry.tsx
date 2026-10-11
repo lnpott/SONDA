@@ -4,6 +4,7 @@ import {
   ModifierStates,
   InputChannelsConfig,
 } from "../types";
+import { InputFlowChart } from "./InputFlowChart";
 import {
   Play,
   Pause,
@@ -34,6 +35,10 @@ interface LiveTelemetryProps {
   anomalies: InputEventRecord[];
   inputChannels?: InputChannelsConfig;
   onToggleChannel?: (channel: keyof InputChannelsConfig) => void;
+  onCaptureEvent?: (event: InputEventRecord) => void;
+  onOpenSnapshots?: () => void;
+  onOpenTrends?: () => void;
+  snapshotCount?: number;
 }
 
 export const LiveTelemetry: React.FC<LiveTelemetryProps> = ({
@@ -45,9 +50,13 @@ export const LiveTelemetry: React.FC<LiveTelemetryProps> = ({
   anomalies,
   inputChannels,
   onToggleChannel,
+  onCaptureEvent,
+  onOpenSnapshots,
+  onOpenTrends,
+  snapshotCount,
 }) => {
   const [filterType, setFilterType] = useState<
-    "all" | "anomalies" | "mouse" | "keyboard" | "wheel"
+    "all" | "anomalies" | "mouse" | "keyboard" | "wheel" | "tilt"
   >("all");
   
   // Keyword Search State
@@ -106,6 +115,8 @@ export const LiveTelemetry: React.FC<LiveTelemetryProps> = ({
     if (filterType === "mouse" && ev.source !== "mouse") return false;
     if (filterType === "keyboard" && ev.source !== "keyboard") return false;
     if (filterType === "wheel" && ev.source !== "wheel" && ev.source !== "touchpad")
+      return false;
+    if (filterType === "tilt" && ev.source !== "tilt" && ev.eventType !== "wheel-horizontal" && (!ev.deltaX || Math.abs(ev.deltaX) <= 10))
       return false;
 
     // 2. Severity Slider Filter (Hides low-level telemetry noise below threshold)
@@ -316,9 +327,33 @@ export const LiveTelemetry: React.FC<LiveTelemetryProps> = ({
                       ? "bg-amber-950 text-amber-300 border-amber-700"
                       : "bg-neutral-950 text-neutral-600 border-neutral-800 line-through"
                   }`}
-                  title="Toggle Wheel channel recording"
+                  title="Toggle Vertical Wheel recording"
                 >
                   WHEEL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggleChannel("tilt")}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors ${
+                    inputChannels.tilt
+                      ? "bg-purple-950 text-purple-300 border-purple-700"
+                      : "bg-neutral-950 text-neutral-600 border-neutral-800 line-through"
+                  }`}
+                  title="Toggle Horizontal Tilt recording"
+                >
+                  TILT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggleChannel("allApplications")}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors ${
+                    inputChannels.allApplications
+                      ? "bg-emerald-950 text-emerald-300 border-emerald-700"
+                      : "bg-neutral-950 text-neutral-600 border-neutral-800 line-through"
+                  }`}
+                  title="Toggle Multi-Application / Admin Context recording"
+                >
+                  APPS
                 </button>
               </div>
             </div>
@@ -431,10 +466,40 @@ export const LiveTelemetry: React.FC<LiveTelemetryProps> = ({
                 Latest incident: <span className="font-mono">{anomalies[anomalies.length - 1]?.anomalyNote}</span>.
                 This confirms that your system or input device is synthesizing unexpected modifiers or direction triggers when interacting.
               </p>
+              {onOpenSnapshots && (
+                <div className="pt-2 flex flex-wrap items-center gap-2">
+                  {onOpenSnapshots && (
+                    <button
+                      type="button"
+                      onClick={onOpenSnapshots}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-900/80 hover:bg-rose-800 border border-rose-600 rounded text-xs text-rose-100 font-medium transition-colors shadow-sm"
+                    >
+                      <span>📸 Inspecionar Rajada em Snapshots (5s)</span>
+                      {snapshotCount !== undefined && snapshotCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full bg-rose-950 font-mono text-[10px] font-bold border border-rose-700">
+                          {snapshotCount} salvos
+                        </span>
+                      )}
+                    </button>
+                  )}
+                  {onOpenTrends && (
+                    <button
+                      type="button"
+                      onClick={onOpenTrends}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-900/80 hover:bg-indigo-800 border border-indigo-600 rounded text-xs text-indigo-100 font-medium transition-colors shadow-sm"
+                    >
+                      <span>📊 Ver Padrões Temporais no Forensic Trends</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
+
+      {/* D3.js Real-Time Input Flow & Sankey Chart (Highlighting Primary Problem: WIN+D) */}
+      <InputFlowChart events={events} onCaptureEvent={onCaptureEvent} />
 
       {/* Severity Filter Slider Control Card */}
       <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-lg space-y-4">
@@ -933,6 +998,16 @@ export const LiveTelemetry: React.FC<LiveTelemetryProps> = ({
               }`}
             >
               Wheel / Gestures
+            </button>
+            <button
+              onClick={() => setFilterType("tilt")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                filterType === "tilt"
+                  ? "bg-purple-900/60 text-purple-200 shadow-sm"
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              Tilt Horizontal
             </button>
           </div>
 

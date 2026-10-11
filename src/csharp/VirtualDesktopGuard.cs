@@ -30,10 +30,11 @@ namespace InputSleuth
         /// <summary>
         /// Envia scancodes de liberação (KEYUP) para todas as teclas modificadoras.
         /// Destrava o estado lógico do kernel caso a tecla Windows, Ctrl ou Alt tenha ficado presa.
+        /// Zero alocações no heap (stackalloc ReadOnlySpan).
         /// </summary>
         public static void ForceReleaseAllModifiers()
         {
-            byte[] modifierKeys = new byte[]
+            ReadOnlySpan<byte> modifierKeys = stackalloc byte[]
             {
                 (byte)GlobalInputHook.VK_LWIN,
                 (byte)GlobalInputHook.VK_RWIN,

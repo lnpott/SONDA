@@ -9,6 +9,7 @@
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <Description>InputSleuth OS - Diagnosticador e Bloqueador de Interferência de Teclado, Mouse e Desktops Virtuais em C# com Indicador no Tray</Description>
   </PropertyGroup>
 

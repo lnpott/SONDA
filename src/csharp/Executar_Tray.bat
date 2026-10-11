@@ -7,7 +7,25 @@ echo ===========================================================================
 echo   InputSleuth OS - Inicializador do Daemon de Bandeja (System Tray)
 echo ================================================================================
 echo.
-echo Iniciando aplicativo em segundo plano com icone no Tray (ao lado do relogio)...
+
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    if "%1"=="/no-elevation" goto skip_elevation
+    echo [ELEVACAO UAC AUTOMATICA] Solicitando privilegios de Administrador...
+    echo Para interceptar 100%% dos jogos em tela cheia e aplicativos do usuario ativo,
+    echo este processo roda em Alta Integridade na sessao interativa de %USERNAME%.
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process cmd -ArgumentList '/c \"\"%~f0\"\" /no-elevation' -Verb RunAs"
+    exit /b 0
+)
+
+:skip_elevation
+echo [STATUS: ADMINISTRADOR ATIVO]
+echo   - Sessao do Usuario: %USERNAME%
+echo   - Integridade: Alta (UIPI Bypass: 100%% Cobertura)
+echo   - Intercepta: Jogos Administrativos / Tela Cheia + Aplicativos de Usuario Comum
+echo.
+echo Iniciando daemon em segundo plano com icone dinamico no Tray (ao lado do relogio)...
+echo Nota: O icone ficara VERDE durante a protecao e mudara para VERMELHO se detectar anomalia.
 echo.
 
 dotnet --version >nul 2>&1

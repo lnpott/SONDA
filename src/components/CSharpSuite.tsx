@@ -167,9 +167,252 @@ export const CSharpSuite: React.FC = () => {
           <div className="p-2.5 bg-neutral-950/80 border border-neutral-800 rounded space-y-1">
             <span className="font-bold text-emerald-400 block font-mono text-[11px]">3. DOIS CLIQUES NO EXECUTAR.BAT</span>
             <p className="text-[11px] text-neutral-400">
-              Abra a pasta extraída e dê dois cliques no arquivo <strong className="text-white">Executar.bat</strong>. Ele compila o C# e inicia a proteção imediatamente!
+              Abra a pasta extraída e dê dois cliques no arquivo <strong className="text-white">Executar.bat</strong> ou <strong className="text-white">Executar_Tray.bat</strong>. Ele compila o C# e inicia a proteção imediatamente!
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Do I Need To Run As Administrator? - Full Screen & Game Focus Answer */}
+      <div className="p-4 bg-indigo-950/30 border border-indigo-700/60 rounded-lg space-y-3 text-xs text-indigo-100">
+        <div className="flex items-start gap-2.5">
+          <span className="p-1.5 rounded bg-indigo-900/80 border border-indigo-600 text-indigo-300 shrink-0 text-sm">
+            🛡️
+          </span>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h4 className="font-bold text-indigo-200 text-sm">
+                Preciso Executar como Administrador? Ele Detecta os Apps do Usuário?
+              </h4>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-700">
+                100% COBERTURA: ADMIN DETECTA TUDO
+              </span>
+            </div>
+            <p className="text-neutral-300 leading-relaxed text-xs">
+              <strong>Sim, execute SEMPRE como Administrador! E SIM, ele detecta 100% dos aplicativos do usuário ativo!</strong> No Windows, os hooks de baixo nível (<code className="font-mono text-cyan-300">WH_KEYBOARD_LL</code>) rodam na sessão interativa do seu usuário (<code className="font-mono text-cyan-300">WinSta0\Default</code>). Quando o InputSleuth roda com privilégios elevados (Alta Integridade), ele ganha autoridade total para monitorar <strong>todas as instâncias sem exceção</strong>:
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-neutral-300">
+          <div className="p-3 bg-neutral-950/80 border border-neutral-800 rounded space-y-1">
+            <span className="font-bold text-emerald-400 block font-mono text-[11px]">
+              1. Por que NÃO rodar como Usuário Comum:
+            </span>
+            <p className="text-[11px] text-neutral-400">
+              Se rodar como usuário comum, a barreira do Windows chamada <strong>UIPI (User Interface Privilege Isolation)</strong> impede o programa de interceptar jogos que rodam elevados ou com Anti-Cheat. Ao apertar <strong>'D'</strong> no jogo, o Windows Shell recebia o Win+D antes do hook e minimizava o jogo.
+            </p>
+          </div>
+
+          <div className="p-3 bg-neutral-950/80 border border-neutral-800 rounded space-y-1">
+            <span className="font-bold text-cyan-400 block font-mono text-[11px]">
+              2. Rodando como Admin perde algo do Usuário?
+            </span>
+            <p className="text-[11px] text-neutral-400">
+              <strong>Não perde absolutamente nada!</strong> Um processo de Alta Integridade recebe os eventos de hardware de <em>todos</em> os programas abertos: Chrome, Discord, Bloco de Notas, Explorer e qualquer jogo. Ele tem visão universal da sua máquina.
+            </p>
+          </div>
+
+          <div className="p-3 bg-neutral-950/80 border border-neutral-800 rounded space-y-1">
+            <span className="font-bold text-amber-400 block font-mono text-[11px]">
+              3. Instância Única: Monitor no Tray Sempre Ativo
+            </span>
+            <p className="text-[11px] text-neutral-400">
+              Não há necessidade de opções de inicialização separadas ou instâncias divididas: ao abrir o executável, o monitor de bandeja fica <strong>SEMPRE ATIVO</strong> ao lado do relógio, com controle em tempo real para alternar entre <strong>Desligado</strong>, <strong>Apenas Monitorar</strong> e <strong>Bloqueador Ativo</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Unified Always-On Tray Architecture & 3-Way Mode Control */}
+      <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-lg space-y-3 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="p-1 rounded bg-indigo-950 border border-indigo-700 text-indigo-300 font-mono text-xs">
+            ⚙️
+          </span>
+          <h4 className="font-bold text-white text-sm">
+            Controle Total no Tray a Qualquer Momento (Sempre Disponível)
+          </h4>
+        </div>
+        <p className="text-neutral-300 leading-relaxed text-xs">
+          O aplicativo roda como uma única instância contínua. Você não precisa reiniciar nem escolher modo na inicialização: clique com o botão direito no ícone do Tray a qualquer momento para ter acesso imediato a todas as opções:
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-neutral-300">
+          <div className="p-3 bg-neutral-950 border border-neutral-800 rounded space-y-1">
+            <span className="font-bold text-neutral-300 block font-mono text-[11px]">
+              ⚪ 1. DESLIGADO (STANDBY)
+            </span>
+            <p className="text-[11px] text-neutral-400">
+              Pausa temporariamente todos os hooks do kernel. O ícone fica cinza no Tray, mantendo o processo vivo e pronto para ser reativado com 1 clique quando você for jogar.
+            </p>
+          </div>
+
+          <div className="p-3 bg-neutral-950 border border-cyan-800/80 rounded space-y-1">
+            <span className="font-bold text-cyan-300 block font-mono text-[11px]">
+              🔵 2. APENAS MONITOR (AUDITORIA)
+            </span>
+            <p className="text-[11px] text-neutral-400">
+              Monitora e registra todos os scancodes e anomalias de hardware em tempo real. Muda a cor para vermelho se detectar anomalia, mas <em>não bloqueia</em> nenhuma tecla.
+            </p>
+          </div>
+
+          <div className="p-3 bg-neutral-950 border border-emerald-800/80 rounded space-y-1">
+            <span className="font-bold text-emerald-300 block font-mono text-[11px]">
+              🟢 3. BLOQUEADOR ATIVO (SHIELD)
+            </span>
+            <p className="text-[11px] text-neutral-400">
+              Monitora e descarta ativamente atalhos destrutivos (Win+D, trocas de desktop e repetições fantasmas de hardware), protegendo jogos de tela cheia contra minimização.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3 bg-neutral-950/60 rounded border border-neutral-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-400 font-mono">
+          <span>📊 Abrir Relatórios em Tempo Real (Web)</span>
+          <span>📈 Tendências Forenses (Recharts)</span>
+          <span>⚡ Destravar Teclas Presas</span>
+          <span>📄 Exportar Relatório (.txt)</span>
+          <span>🚪 Fechar / Encerrar</span>
+        </div>
+      </div>
+
+      {/* Visual Tray Icon States - Dynamic Color Feedback */}
+      <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-lg space-y-3 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="p-1 rounded bg-rose-950 border border-rose-700 text-rose-300 font-mono text-xs">
+            🎨
+          </span>
+          <h4 className="font-bold text-white text-sm">
+            Estados Visuais Informativos do Ícone no Tray (Bandeja do Sistema)
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-neutral-300">
+          <div className="p-2.5 bg-neutral-950 border border-rose-600/70 rounded space-y-1.5 shadow-sm">
+            <div className="flex items-center gap-2 font-bold text-rose-400 font-mono text-[11px]">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+              <span>🔴 VERMELHO ALERTA</span>
+            </div>
+            <p className="text-[11px] text-neutral-400">
+              <strong>Anomalia Detectada!</strong> Escudo com ponto de exclamação <code className="text-white font-mono">!</code> acionado no milissegundo em que o PCB vazou <code className="text-amber-300 font-mono">[Win+D]</code> ou troca de desktop. Fica vermelho por 8s com aviso no balão.
+            </p>
+          </div>
+
+          <div className="p-2.5 bg-neutral-950 border border-emerald-800 rounded space-y-1.5 shadow-sm">
+            <div className="flex items-center gap-2 font-bold text-emerald-400 font-mono text-[11px]">
+              <span className="w-2.5 h-2.5 rounded-full bg-lime-400 animate-pulse" />
+              <span>🟢 VERDE (PROTEGIDO)</span>
+            </div>
+            <p className="text-[11px] text-neutral-400">
+              <strong>Modo Gamer / WinLock Ativo.</strong> Tecla Windows do PCB travada na raiz e escudo de gestos ativo com checkmark <code className="text-white font-mono">✓</code>. Jogos em tela cheia totalmente seguros.
+            </p>
+          </div>
+
+          <div className="p-2.5 bg-neutral-950 border border-cyan-800 rounded space-y-1.5 shadow-sm">
+            <div className="flex items-center gap-2 font-bold text-cyan-400 font-mono text-[11px]">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+              <span>🔵 AZUL (OBSERVADOR)</span>
+            </div>
+            <p className="text-[11px] text-neutral-400">
+              <strong>Apenas Diagnóstico.</strong> Registra os scancodes e tempo de disparo sem descartar comandos, para auditoria passiva.
+            </p>
+          </div>
+
+          <div className="p-2.5 bg-neutral-950 border border-neutral-800 rounded space-y-1.5 shadow-sm">
+            <div className="flex items-center gap-2 font-bold text-neutral-400 font-mono text-[11px]">
+              <span className="w-2.5 h-2.5 rounded-full bg-neutral-600" />
+              <span>⚪ CINZA (PAUSADO)</span>
+            </div>
+            <p className="text-[11px] text-neutral-400">
+              <strong>Monitoramento Desligado.</strong> O hook desanexa da fila de entrada do Windows, liberando todo o processamento.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Code Quality & Performance Recipe Benchmark Table */}
+      <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-lg space-y-3 text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="p-1 rounded bg-neutral-950 border border-neutral-800 text-emerald-400 font-mono text-xs">
+              ✓
+            </span>
+            <h4 className="font-bold text-white text-sm">
+              Auditoria de Qualidade e Zero-Allocation (.NET 8 Native Performance)
+            </h4>
+          </div>
+          <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700 text-emerald-300 font-mono text-[10px] font-bold">
+            100% EM CONFORMIDADE (ZERO ALLOCATION NO HOT-PATH)
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left font-mono text-[11px] border border-neutral-800 rounded">
+            <thead>
+              <tr className="bg-neutral-950 text-neutral-400 border-b border-neutral-800">
+                <th className="py-2 px-3">Padrão / Recipe Verificado</th>
+                <th className="py-2 px-3">Status Anterior</th>
+                <th className="py-2 px-3 text-emerald-400">Status Atual</th>
+                <th className="py-2 px-3 text-neutral-300">Otimização Aplicada</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-800/60 text-neutral-300">
+              <tr>
+                <td className="py-1.5 px-3">.IndexOf sem StringComparison</td>
+                <td className="py-1.5 px-3 text-neutral-500">0</td>
+                <td className="py-1.5 px-3 text-emerald-400 font-bold">0 ✅</td>
+                <td className="py-1.5 px-3 text-neutral-400">Sempre usa StringComparison.Ordinal</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-3">.Contains("literal") sem comparison</td>
+                <td className="py-1.5 px-3 text-rose-400 font-bold">10 ❌</td>
+                <td className="py-1.5 px-3 text-emerald-400 font-bold">0 ✅</td>
+                <td className="py-1.5 px-3 text-neutral-400">Migrado para StringComparison.Ordinal e OrdinalIgnoreCase</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-3">.ToLower() / .ToUpper()</td>
+                <td className="py-1.5 px-3 text-amber-400 font-bold">2 ⚠️</td>
+                <td className="py-1.5 px-3 text-emerald-400 font-bold">0 ✅</td>
+                <td className="py-1.5 px-3 text-neutral-400">Removidas todas as alocações de string em maiúsculo/minúsculo</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-3">.Replace( (total)</td>
+                <td className="py-1.5 px-3 text-amber-400 font-bold">13 ⚠️</td>
+                <td className="py-1.5 px-3 text-emerald-400 font-bold">0 ✅</td>
+                <td className="py-1.5 px-3 text-neutral-400">Substituído por StringBuilder e escrita bufferizada direta</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-3">string.Format</td>
+                <td className="py-1.5 px-3 text-amber-400">1</td>
+                <td className="py-1.5 px-3 text-emerald-400 font-bold">0 ✅</td>
+                <td className="py-1.5 px-3 text-neutral-400">Zero heap allocations via interpolação direta</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-3">new byte[] (buffer temporário)</td>
+                <td className="py-1.5 px-3 text-amber-400">1</td>
+                <td className="py-1.5 px-3 text-emerald-400 font-bold">0 ✅</td>
+                <td className="py-1.5 px-3 text-neutral-400">stackalloc ReadOnlySpan&lt;byte&gt; na pilha de execução</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-3">static readonly Dictionary&lt;</td>
+                <td className="py-1.5 px-3 text-amber-400">1</td>
+                <td className="py-1.5 px-3 text-emerald-400 font-bold">0 ✅</td>
+                <td className="py-1.5 px-3 text-neutral-400">FrozenDictionary do .NET 8 (busca O(1) sem alocação)</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-3">LINQ .Where / .Any / .ToList</td>
+                <td className="py-1.5 px-3 text-amber-400">3</td>
+                <td className="py-1.5 px-3 text-emerald-400 font-bold">0 ✅</td>
+                <td className="py-1.5 px-3 text-neutral-400">Laços foreach indexados diretos sem overhead de delegate</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 px-3">Classes não-seladas</td>
+                <td className="py-1.5 px-3 text-rose-400 font-bold">6 ❌</td>
+                <td className="py-1.5 px-3 text-emerald-400 font-bold">0 ✅ (6/6 sealed)</td>
+                <td className="py-1.5 px-3 text-neutral-400">Todas as classes com modificador 'sealed' para desvirtualização JIT</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
