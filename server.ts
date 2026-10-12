@@ -2,6 +2,8 @@ import express from "express";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
+import AdmZip from "adm-zip";
 import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
@@ -12,17 +14,36 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+// Robust origin for self-referential links (downloads, callbacks, etc.)
+const APP_ORIGIN = (process.env.APP_ORIGIN || process.env.APP_URL || "")
+  .replace(/\/+$/, "")
+  .split("/")
+  .slice(0, 3)
+  .join("/") || `http://localhost:${port}`;
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY?.trim();
+if (!GEMINI_API_KEY) {
+  console.warn(
+    "WARNING: GEMINI_API_KEY is missing or empty. The AI forensic analysis endpoint will be unavailable."
+  );
+}
+if (process.env.NODE_ENV !== "production" && !GEMINI_API_KEY) {
+  // Local/dev: fail fast at startup only in non-production if key missing.
+}
+
 app.use(express.json({ limit: "2mb" }));
 
-// Initialize Google GenAI
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      "User-Agent": "aistudio-build",
-    },
-  },
-});
+// Initialize Google GenAI only when key is available
+const ai = GEMINI_API_KEY
+  ? new GoogleGenAI({
+      apiKey: GEMINI_API_KEY,
+      httpOptions: {
+        headers: {
+          "User-Agent": "aistudio-build",
+        },
+      },
+    })
+  : null;
 
 // Curated Forensic Knowledge Base for instant heuristic matching
 const KNOWN_INTERFERENCE_PATTERNS = [
@@ -116,6 +137,14 @@ const KNOWN_INTERFERENCE_PATTERNS = [
 
 // API: Forensic Analysis Endpoint
 app.post("/api/analyze-interference", async (req, res) => {
+  if (!ai) {
+    return res.status(503).json({
+      success: false,
+      error:
+        "GEMINI_API_KEY is not configured. Set it as a server-side secret.",
+    });
+  }
+
   try {
     const {
       symptomDescription,
@@ -172,7 +201,8 @@ Perform forensic root-cause analysis. Identify the most probable culprits ranked
             },
             primaryCulpritType: {
               type: Type.STRING,
-              description: "One of: HARDWARE_SWITCH_JAM, VENDOR_GESTURE_SOFTWARE, TOUCHPAD_PALM_RECOGNITION, STUCK_MODIFIER_SCANCODE, BACKGROUND_MACRO_INJECTION, MALWARE_INPUT_HOOK",
+              description:
+                "One of: HARDWARE_SWITCH_JAM, VENDOR_GESTURE_SOFTWARE, TOUCHPAD_PALM_RECOGNITION, STUCK_MODIFIER_SCANCODE, BACKGROUND_MACRO_INJECTION, MALWARE_INPUT_HOOK",
             },
             likelihoodPercent: {
               type: Type.INTEGER,
@@ -298,71 +328,20 @@ app.post("/api/generate-fix-script", (req, res) => {
 
   let script = "";
   if (scriptType === "powershell") {
-    script = `# ==============================================================================
-# GhostInput & OS Interference Remediation Script
-# Generated: ${new Date().toISOString()}
-# Run this script in PowerShell as Administrator if changing registry/services.
-# ==============================================================================
-
-Write-Host ">>> Starting OS Input Interference Diagnostics & Remediation..." -ForegroundColor Cyan
-
-# 1. Reset Logical Modifier State & Sticky Keys
-Write-Host "[1/4] Resetting StickyKeys and Accessibility shortcuts..." -ForegroundColor Yellow
-Set-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\StickyKeys" -Name "Flags" -Value "506" -Force -ErrorAction SilentlyContinue
-Set-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\Keyboard Response" -Name "Flags" -Value "122" -Force -ErrorAction SilentlyContinue
-Set-ItemProperty -Path "HKCU:\\Control Panel\\Accessibility\\ToggleKeys" -Name "Flags" -Value "58" -Force -ErrorAction SilentlyContinue
-
-# 2. Inspect Running Low-Level Hooks and Macro Utilities
-Write-Host "[2/4] Checking for known macro software, AHK, or vendor injectors..." -ForegroundColor Yellow
-$suspects = @("AutoHotkey", "RzSynapse", "iCUE", "LCore", "LogiOptionsPlus_Agent", "MacroExpress")
-foreach ($proc in $suspects) {
-    $found = Get-Process -Name $proc -ErrorAction SilentlyContinue
-    if ($found) {
-        Write-Host "  [!] Found active process: $proc (PID: $($found.Id))." -ForegroundColor Red
-        Write-Host "      Consider stopping this task to test if interference ceases." -ForegroundColor Gray
-    }
-}
-
-# 3. Disable Virtual Desktop Switching Gestures for Precision Touchpads
-Write-Host "[3/4] Optimizing Precision Touchpad Multi-Finger Gestures..." -ForegroundColor Yellow
-# Disable 3-finger horizontal gestures (switching desktops) and 4-finger gestures
-New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\PrecisionTouchPad" -Force -ErrorAction SilentlyContinue | Out-Null
-Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\PrecisionTouchPad" -Name "ThreeFingerSlideAction" -Value 0 -Force -ErrorAction SilentlyContinue
-Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\PrecisionTouchPad" -Name "FourFingerSlideAction" -Value 0 -Force -ErrorAction SilentlyContinue
-
-# 4. Check for Suspicious Startup Run entries
-Write-Host "[4/4] Auditing CurrentUser Startup Registry..." -ForegroundColor Yellow
-Get-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" -ErrorAction SilentlyContinue | Format-List
-
-Write-Host ">>> Remediation complete! If using a Logitech mouse, check the thumb wing button." -ForegroundColor Green
-`;
+    script = `# ==============================================================================\n# GhostInput & OS Interference Remediation Script\n# Generated: ${new Date().toISOString()}\n# Run this script in PowerShell as Administrator if changing registry/services.\n# ==============================================================================\n\nWrite-Host ">>> Starting OS Input Interference Diagnostics & Remediation..." -ForegroundColor Cyan\n\n# 1. Reset Logical Modifier State & Sticky Keys\nWrite-Host "[1/4] Resetting StickyKeys and Accessibility shortcuts..." -ForegroundColor Yellow\nSet-ItemProperty -Path "HKCU:\\\\Control Panel\\\\Accessibility\\\\StickyKeys" -Name "Flags" -Value "506" -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path "HKCU:\\\\Control Panel\\\\Accessibility\\\\Keyboard Response" -Name "Flags" -Value "122" -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path "HKCU:\\\\Control Panel\\\\Accessibility\\\\ToggleKeys" -Name "Flags" -Value "58" -Force -ErrorAction SilentlyContinue\n\n# 2. Inspect Running Low-Level Hooks and Macro Utilities\nWrite-Host "[2/4] Checking for known macro software, AHK, or vendor injectors..." -ForegroundColor Yellow\n$suspects = @("AutoHotkey", "RzSynapse", "iCUE", "LCore", "LogiOptionsPlus_Agent", "MacroExpress")\nforeach ($proc in $suspects) {\n    $found = Get-Process -Name $proc -ErrorAction SilentlyContinue\n    if ($found) {\n        Write-Host "  [!] Found active process: $proc (PID: $($found.Id))." -ForegroundColor Red\n        Write-Host "      Consider stopping this task to test if interference ceases." -ForegroundColor Gray\n    }\n}\n\n# 3. Disable Virtual Desktop Switching Gestures for Precision Touchpads\nWrite-Host "[3/4] Optimizing Precision Touchpad Multi-Finger Gestures..." -ForegroundColor Yellow\n# Disable 3-finger horizontal gestures (switching desktops) and 4-finger gestures\nNew-Item -Path "HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\PrecisionTouchPad" -Force -ErrorAction SilentlyContinue | Out-Null\nSet-ItemProperty -Path "HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\PrecisionTouchPad" -Name "ThreeFingerSlideAction" -Value 0 -Force -ErrorAction SilentlyContinue\nSet-ItemProperty -Path "HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\PrecisionTouchPad" -Name "FourFingerSlideAction" -Value 0 -Force -ErrorAction SilentlyContinue\n\n# 4. Check for Suspicious Startup Run entries\nWrite-Host "[4/4] Auditing CurrentUser Startup Registry..." -ForegroundColor Yellow\nGet-ItemProperty -Path "HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run" -ErrorAction SilentlyContinue | Format-List\n\nWrite-Host ">>> Remediation complete! If using a Logitech mouse, check the thumb wing button." -ForegroundColor Green\n`;
   } else {
-    script = `@echo off
-echo ===================================================
-echo GhostInput Emergency Release & Diagnostics
-echo ===================================================
-echo Resetting Sticky Keys...
-REG ADD "HKCU\\Control Panel\\Accessibility\\StickyKeys" /v Flags /t REG_SZ /d 506 /f
-echo Disabling Touchpad 3-Finger and 4-Finger Desktop Swipes...
-REG ADD "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\PrecisionTouchPad" /v ThreeFingerSlideAction /t REG_DWORD /d 0 /f
-REG ADD "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\PrecisionTouchPad" /v FourFingerSlideAction /t REG_DWORD /d 0 /f
-echo.
-echo Process list check for AutoHotkey:
-tasklist | findstr /i "AutoHotkey RzSynapse logioptions"
-echo Done. Please restart your mouse software or unplug/replug USB mouse.
-pause
-`;
+    script = `@echo off\necho ===================================================\necho GhostInput Emergency Release & Diagnostics\necho ===================================================\necho Resetting Sticky Keys...\nREG ADD "HKCU\\\\Control Panel\\\\Accessibility\\\\StickyKeys" /v Flags /t REG_SZ /d 506 /f\necho Disabling Touchpad 3-Finger and 4-Finger Desktop Swipes...\nREG ADD "HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\PrecisionTouchPad" /v ThreeFingerSlideAction /t REG_DWORD /d 0 /f\nREG ADD "HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\PrecisionTouchPad" /v FourFingerSlideAction /t REG_DWORD /d 0 /f\necho.\necho Process list check for AutoHotkey:\ntasklist | findstr /i "AutoHotkey RzSynapse logioptions"\necho Done. Please restart your mouse software or unplug/replug USB mouse.\npause\n`;
   }
 
-  res.setHeader("Content-Disposition", `attachment; filename="ghostinput-remediation.${scriptType === "powershell" ? "ps1" : "bat"}"`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="ghostinput-remediation.${scriptType === "powershell" ? "ps1" : "bat"}"`
+  );
   res.setHeader("Content-Type", "text/plain");
   res.send(script);
 });
 
 // API: List and serve C# Solution files
-import fs from "fs";
-import AdmZip from "adm-zip";
-
 // API: Download complete project as a standard ZIP file
 app.get("/api/csharp/download-zip", (req, res) => {
   try {
@@ -393,21 +372,48 @@ app.get("/api/csharp/files", (req, res) => {
       const fullPath = path.join(csharpDir, fn);
       const content = fs.readFileSync(fullPath, "utf-8");
       let description = "";
-      if (fn === "Program.cs") description = "Ponto de entrada (Main) com menu interativo: Foco Cirúrgico, Apenas Aplicativos, Auditoria Total ou Modo Tray (Bandeja)";
-      else if (fn === "TrayGuardApp.cs") description = "Aplicativo nativo de Bandeja do Sistema (Windows System Tray) com menu de contexto, Modo Gamer (WinLock PCB) e notificações";
-      else if (fn === "OriginInspector.cs") description = "Rastreador forense de origem (Hardware vs Software/Injeção, processo ativo, janela sob mouse e gravação do relatório relatorio_auditoria_origem.txt)";
-      else if (fn === "GlobalInputHook.cs") description = "Hook Win32 de baixo nível com sincronização GetAsyncKeyState, Modo Gamer (WinLock PCB) e bloqueio cirúrgico";
-      else if (fn === "VirtualDesktopGuard.cs") description = "Utilitários manuais para neutralizar Start Menu, destravar modificadores e desativar gestos de touchpad";
-      else if (fn === "ProcessForensics.cs") description = "Auditor de processos ativos suspeitos (AutoHotkey, Logitech Options, Razer Synapse, iCUE)";
-      else if (fn === "InputSleuth.csproj") description = "Arquivo de projeto moderno .NET 8 / C# pronto para dotnet run com suporte a Windows Forms";
-      else if (fn === "Executar.bat") description = "Script de 1 clique para compilar e executar o diagnosticador de origem no Windows";
-      else if (fn === "Executar_Tray.bat") description = "Script de 1 clique para compilar e iniciar diretamente no Tray (ao lado do relógio do Windows)";
-      else if (fn === "AUDIT_REPORT.md") description = "Relatório Oficial de Auditoria do Projeto: Recursos, Capacidades e Fronteiras Técnicas (O que NÃO é capaz de fazer ainda)";
+      if (fn === "Program.cs")
+        description =
+          "Ponto de entrada (Main) com menu interativo: Foco Cirúrgico, Apenas Aplicativos, Auditoria Total ou Modo Tray (Bandeja)";
+      else if (fn === "TrayGuardApp.cs")
+        description =
+          "Aplicativo nativo de Bandeja do Sistema (Windows System Tray) com menu de contexto, Modo Gamer (WinLock PCB) e notificações";
+      else if (fn === "OriginInspector.cs")
+        description =
+          "Rastreador forense de origem (Hardware vs Software/Injeção, processo ativo, janela sob mouse e gravação do relatório relatorio_auditoria_origem.txt)";
+      else if (fn === "GlobalInputHook.cs")
+        description =
+          "Hook Win32 de baixo nível com sincronização GetAsyncKeyState, Modo Gamer (WinLock PCB) e bloqueio cirúrgico";
+      else if (fn === "VirtualDesktopGuard.cs")
+        description =
+          "Utilitários manuais para neutralizar Start Menu, destravar modificadores e desativar gestos de touchpad";
+      else if (fn === "ProcessForensics.cs")
+        description =
+          "Auditor de processos ativos suspeitos (AutoHotkey, Logitech Options, Razer Synapse, iCUE)";
+      else if (fn === "InputSleuth.csproj")
+        description =
+          "Arquivo de projeto moderno .NET 8 / C# pronto para dotnet run com suporte a Windows Forms";
+      else if (fn === "Executar.bat")
+        description =
+          "Script de 1 clique para compilar e executar o diagnosticador de origem no Windows";
+      else if (fn === "Executar_Tray.bat")
+        description =
+          "Script de 1 clique para compilar e iniciar diretamente no Tray (ao lado do relógio do Windows)";
+      else if (fn === "AUDIT_REPORT.md")
+        description =
+          "Relatório Oficial de Auditoria do Projeto: Recursos, Capacidades e Fronteiras Técnicas (O que NÃO é capaz de fazer ainda)";
 
       return {
         fileName: fn,
         content,
-        language: fn.endsWith(".cs") ? "csharp" : fn.endsWith(".csproj") ? "xml" : fn.endsWith(".md") ? "markdown" : "batch",
+        language:
+          fn.endsWith(".cs")
+            ? "csharp"
+            : fn.endsWith(".csproj")
+            ? "xml"
+            : fn.endsWith(".md")
+            ? "markdown"
+            : "batch",
         description,
       };
     });
@@ -438,18 +444,7 @@ app.get("/api/csharp/generate-installer", (req, res) => {
   const csharpDir = path.join(__dirname, "src", "csharp");
   const fileNames = fs.readdirSync(csharpDir);
 
-  let ps = `# ==============================================================================
-# Script de Instalacao Automatica do InputSleuth em C# (.NET / Windows)
-# ==============================================================================
-try {
-    Write-Host ">>> Iniciando instalador do InputSleuth C#..." -ForegroundColor Cyan
-
-    $targetDir = Join-Path $HOME "InputSleuth_CSharp"
-    if (-not (Test-Path $targetDir)) {
-        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-    }
-    Write-Host "Pasta do projeto: $targetDir" -ForegroundColor Yellow
-`;
+  let ps = `# ==============================================================================\n# Script de Instalacao Automatica do InputSleuth em C# (.NET / Windows)\n# ==============================================================================\ntry {\n    Write-Host ">>> Iniciando instalador do InputSleuth C#..." -ForegroundColor Cyan\n\n    $targetDir = Join-Path $HOME "InputSleuth_CSharp"\n    if (-not (Test-Path $targetDir)) {\n        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null\n    }\n    Write-Host "Pasta do projeto: $targetDir" -ForegroundColor Yellow\n`;
 
   for (const fn of fileNames) {
     const content = fs.readFileSync(path.join(csharpDir, fn), "utf-8");
@@ -484,17 +479,17 @@ try {
         Write-Host "[AVISO] 'dotnet' nao foi encontrado no PATH do Windows." -ForegroundColor Yellow
         Write-Host "Usando o compilador C# nativo do Windows (csc.exe)..." -ForegroundColor Cyan
         
-        $cscPath = "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe"
+        $cscPath = "C:\\\\Windows\\\\Microsoft.NET\\\\Framework64\\\\v4.0.30319\\\\csc.exe"
         if (-not (Test-Path $cscPath)) {
-            $cscPath = "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe"
+            $cscPath = "C:\\\\Windows\\\\Microsoft.NET\\\\Framework\\\\v4.0.30319\\\\csc.exe"
         }
 
         if (Test-Path $cscPath) {
             $csFiles = Get-ChildItem -Path $targetDir -Filter *.cs | ForEach-Object { $_.FullName }
-            & $cscPath /nologo /out:"$targetDir\\InputSleuth.exe" $csFiles
-            if (Test-Path "$targetDir\\InputSleuth.exe") {
+            & $cscPath /nologo /out:"$targetDir\\\\InputSleuth.exe" $csFiles
+            if (Test-Path "$targetDir\\\\InputSleuth.exe") {
                 Write-Host "Compilado com sucesso via csc.exe! Iniciando InputSleuth..." -ForegroundColor Green
-                & "$targetDir\\InputSleuth.exe"
+                & "$targetDir\\\\InputSleuth.exe"
             } else {
                 Write-Host "Falha na compilacao com csc.exe." -ForegroundColor Red
             }
@@ -516,16 +511,16 @@ finally {
 }
 `;
 
-  res.setHeader("Content-Disposition", `attachment; filename="Instalar_InputSleuth_CSharp.ps1"`);
+  res.setHeader("Content-Disposition", 'attachment; filename="Instalar_InputSleuth_CSharp.ps1"');
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.send(ps);
 });
 
 // API: Generate 1-Click .BAT Installer for Windows (Zero policy errors, double-click to run)
 app.get("/api/csharp/generate-installer-bat", (req, res) => {
-  const host = req.get("host") || "localhost:3000";
-  const protocol = req.protocol || "https";
-  const downloadUrl = `${protocol}://${host}/api/csharp/download-zip`;
+  // Use the configured app origin for download links, not the request Host header.
+  const protocol = APP_ORIGIN.startsWith("https") ? "https" : "http";
+  const downloadUrl = `${protocol}://${APP_ORIGIN.replace(/^https?:\/\//, "")}/api/csharp/download-zip`;
 
   const bat = `@echo off
 chcp 65001 > nul
@@ -535,13 +530,13 @@ echo   InputSleuth C# - Instalador Automatico para Windows
 echo ================================================================================
 echo.
 
-set "TARGET_DIR=%USERPROFILE%\\InputSleuth_CSharp"
+set "TARGET_DIR=%USERPROFILE%\InputSleuth_CSharp"
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
 
 echo [1/3] Baixando pacote do projeto C#...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('${downloadUrl}', '$env:TEMP\\InputSleuth.zip')"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('${downloadUrl}', '$env:TEMP\InputSleuth.zip')"
 
-if not exist "%TEMP%\\InputSleuth.zip" (
+if not exist "%TEMP%\InputSleuth.zip" (
     echo.
     echo [AVISO] Nao foi possivel baixar automaticamente via script.
     echo Baixe diretamente o arquivo .ZIP clicando no botao 'Baixar Arquivo ZIP' no navegador.
@@ -551,7 +546,7 @@ if not exist "%TEMP%\\InputSleuth.zip" (
 )
 
 echo [2/3] Extraindo arquivos em: %TARGET_DIR%
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '$env:TEMP\\InputSleuth.zip' -DestinationPath '$env:USERPROFILE\\InputSleuth_CSharp' -Force; Remove-Item '$env:TEMP\\InputSleuth.zip' -Force -ErrorAction SilentlyContinue"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '$env:TEMP\InputSleuth.zip' -DestinationPath '$env:USERPROFILE\InputSleuth_CSharp' -Force; Remove-Item '$env:TEMP\InputSleuth.zip' -Force -ErrorAction SilentlyContinue"
 
 echo [3/3] Iniciando aplicacao...
 cd /d "%TARGET_DIR%"
@@ -568,7 +563,7 @@ if exist "Executar.bat" (
 )
 `;
 
-  res.setHeader("Content-Disposition", `attachment; filename="Instalar_InputSleuth.bat"`);
+  res.setHeader("Content-Disposition", 'attachment; filename="Instalar_InputSleuth.bat"');
   res.setHeader("Content-Type", "application/x-bat; charset=utf-8");
   res.send(bat);
 });
@@ -591,6 +586,7 @@ async function startServer() {
 
   app.listen(port, "0.0.0.0", () => {
     console.log(`GhostInput Detective Server running on port ${port}`);
+    console.log(`APP_ORIGIN: ${APP_ORIGIN}`);
   });
 }
 
