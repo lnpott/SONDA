@@ -402,11 +402,12 @@ app.get("/api/csharp/files", (req, res) => {
       else if (fn === "InputSleuth.csproj") description = "Arquivo de projeto moderno .NET 8 / C# pronto para dotnet run com suporte a Windows Forms";
       else if (fn === "Executar.bat") description = "Script de 1 clique para compilar e executar o diagnosticador de origem no Windows";
       else if (fn === "Executar_Tray.bat") description = "Script de 1 clique para compilar e iniciar diretamente no Tray (ao lado do relógio do Windows)";
+      else if (fn === "AUDIT_REPORT.md") description = "Relatório Oficial de Auditoria do Projeto: Recursos, Capacidades e Fronteiras Técnicas (O que NÃO é capaz de fazer ainda)";
 
       return {
         fileName: fn,
         content,
-        language: fn.endsWith(".cs") ? "csharp" : fn.endsWith(".csproj") ? "xml" : "batch",
+        language: fn.endsWith(".cs") ? "csharp" : fn.endsWith(".csproj") ? "xml" : fn.endsWith(".md") ? "markdown" : "batch",
         description,
       };
     });

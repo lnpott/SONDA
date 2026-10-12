@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Cpu,
   Sparkles,
+  FileText,
 } from "lucide-react";
 
 interface CSharpFile {
@@ -114,6 +115,15 @@ export const CSharpSuite: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              onClick={() => setSelectedFile("AUDIT_REPORT.md")}
+              className="px-3.5 py-2 text-xs font-semibold text-rose-300 bg-rose-950/70 border border-rose-800 rounded-md hover:bg-rose-900 transition-colors flex items-center gap-2 shadow-sm"
+              title="Abrir o Relatório Oficial de Auditoria do Projeto (Recursos, Capacidades e o que NÃO é capaz de fazer ainda)"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Relatório de Auditoria (.md)
+            </button>
+
             <button
               onClick={handleDownloadZip}
               className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 rounded-md hover:bg-cyan-500 transition-colors flex items-center gap-2 shadow-sm"
