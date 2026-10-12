@@ -169,3 +169,49 @@ A solução atual entrega 100% dos requisitos funcionais do projeto:
 * Todos os **5 canais de telemetria** são registrados e auditados;
 * O componente **Forensic Trends com Recharts** oferece visualização analítica temporal completa;
 * Todas as **fronteiras de engenharia e limitações do sistema operacional** foram formalmente catalogadas e documentadas para o repositório GitHub.
+
+---
+
+## 7. AUDITORIA DE EXECUÇÃO E REGISTRO DE MELHORIAS (SESSÃO DE IMPLANTAÇÃO)
+
+Esta seção é um registro executado em tempo real do que foi verificado, o que foi corrigido nesse ciclo e o que ainda está ruim ou pendente.
+
+### 7.1 O que foi feito / implementado
+
+- Separação de configuração TypeScript para o servidor Node/Express (`tsconfig.server.json`).
+- Migração do `vite.config.ts` para usar `import.meta.dirname` em vez de `__dirname`.
+- Reescrita do `server.ts`:
+  - Validação de `GEMINI_API_KEY` com aviso no console e resposta clara `503` no endpoint de IA quando a chave não está configurada.
+  - Implementação dos endpoints que a UI do `CSharpSuite` esperava e que antes faltavam:
+    - `GET /api/csharp/generate-installer`
+    - `GET /api/csharp/generate-installer-bat`
+  - Geração de URL de download mais robusta usando `APP_ORIGIN`/`APP_URL` no lugar de depender do cabeçalho `Host` da requisição.
+- Tratamento de erro no `CSharpSuite`:
+  - estados de erro/loading tidos e reutilizáveis para carregamento de arquivos e downloads;
+  - aviso visível diferente para falha de carregamento do arquivo C# e para falha de download;
+  - possibilidade de descartar/limpar avisos sem recarregar a página inteira.
+
+### 7.2 O que foi verificado como funcional neste snapshot
+
+- `npx tsc --noEmit` passa.
+- `npx vite build` gera `dist/` com sucesso.
+- Smoke do servidor com `node_modules` restaurado:
+  - `GET /` → 200
+  - `GET /api/csharp/generate-installer-bat` → 200
+  - `POST /api/analyze-interference` sem chave → `503` com mensagem explícita
+- `bun install` reconstrói `node_modules` a partir do `bun.lock` e os pacotes necessários estão presentes.
+
+### 7.3 O que ainda está ruim / não ideal / pendente
+
+- **Build frontend ainda grande:** o chunk principal continua acima de 500 kB e o Vite emite aviso. Isso vale para UX/perf e pode ser melhorado com code-splitting.
+- **Áreas frontais de diagnóstico ainda ambíguas:** heurísticas de browser e demonstração ainda se misturam com linguagem de “forense real” em partes do frontend. Isso não é erro de build, mas é risco de expectativa indevida do usuário.
+- **O ecosistema de commits ainda carrega uma dependência forte de que `node_modules` exista localmente.** O repositório não é totalmente “executável só com git clone” sem instalar deps antes dos comandos `tsc`/`vite`/`tsx server`.
+- **`bun.lock` está versionado e mutável entre ambientes.** Isso pode gerar diffs desnecessários ou divergências de lock se houver instalações mistas (bun/npm). Não é erro, mas é coisa para revisar se o projeto for mantido por mais gente.
+- **Índice de typescript padrão ainda aponta para `types: ["vite/client"]`.** Isso é aceitável para o frontend, mas pode gerar confusão em verificações globais de tipo se não for claro que existe um `tsconfig.server.json` separado.
+- **Auditoria ainda não cobre runtime do binário C# de verdade**, só análise estática do código C#; testes reais em Windows não foram feitos aqui.
+
+### 7.4 Decisões tomadas e o que foi deixado fora propositalmente
+
+- Não alterei o modelo de anomalia do `App.tsx` de forma mais agressiva nesta sequência porque isso exigiria decisão mais fina sobre comportamento do usuário, falsos-positivos e onboarding, e o escopo da tarefa atual era registrar e entregar o que já estava em curso.
+- Não adicionei code-splitting pesado agora porque o build já estava verde; a redução de bundle foi listada como melhoria pendente, não como obrigação deste commit.
+
